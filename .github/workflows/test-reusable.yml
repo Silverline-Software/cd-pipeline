@@ -1,0 +1,12 @@
+name: Test Reusable (hello world)
+
+on:
+  workflow_call:
+
+jobs:
+  hello:
+    name: Hello World
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say hello
+        run: echo "Hello from cd-pipeline reusable workflow!"
