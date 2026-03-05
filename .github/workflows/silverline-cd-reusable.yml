@@ -517,21 +517,9 @@ jobs:
           FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
         run: |
           if [ -n "$FIREBASE_SITE_ID" ]; then
-            OUTPUT=$(firebase hosting:sites:create "$FIREBASE_SITE_ID" --project "$FIREBASE_PROJECT" 2>&1)
-            EXIT_CODE=$?
-            if [ "$EXIT_CODE" -eq 0 ]; then
-              echo "Created Firebase Hosting site: $FIREBASE_SITE_ID"
-            else
-              # Non-zero exit — site may already exist (various error phrasings from Firebase CLI)
-              echo "Note: firebase hosting:sites:create exited $EXIT_CODE — site likely already exists"
-              echo "$OUTPUT"
-              # Verify the site is actually accessible; fail only on auth errors
-              if echo "$OUTPUT" | grep -qi "permission\|authentication\|unauthorized\|not found project"; then
-                echo "::error::Firebase auth/project error — aborting" >&2
-                exit 1
-              fi
-              echo "Continuing — assuming site exists"
-            fi
+            firebase hosting:sites:create "$FIREBASE_SITE_ID" --project "$FIREBASE_PROJECT" 2>&1 \
+              | tee /tmp/site-create.log || true
+            echo "Site creation attempted (may already exist — deploying will confirm)"
           fi
 
       - name: Deploy to Firebase Hosting
