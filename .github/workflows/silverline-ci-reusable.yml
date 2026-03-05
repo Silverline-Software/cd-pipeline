@@ -1,0 +1,136 @@
+name: Silverline CI — Generate & Publish Release Report
+
+# Reusable workflow: called by any Silverline project's CI to generate
+# an executive release report from test results and attach it to a
+# GitHub Release on tag pushes.
+#
+# The calling workflow must:
+#   1. Have scripts/generate_release_notes.py in their repo
+#   2. Upload test result XML files as workflow artifacts before calling this
+#   3. (Optional) Upload security scan JSON files as a 'security-reports' artifact
+#
+# Usage in calling workflow:
+#   jobs:
+#     silverline-report:
+#       needs: [test, backend-test]
+#       uses: Silverline-Software/cd-pipeline/.github/workflows/silverline-ci-reusable.yml@main
+#       with:
+#         bdd-artifact-name: test-results
+#         features-dir: test/acceptance/features
+#       permissions:
+#         contents: write
+
+on:
+  workflow_call:
+    inputs:
+      bdd-artifact-name:
+        description: 'Name of the artifact containing BDD test XML results'
+        type: string
+        default: 'test-results'
+      bdd-xml-path:
+        description: 'Path to the BDD JUnit XML file within the artifact'
+        type: string
+        default: 'test-results/results.xml'
+      backend-artifact-name:
+        description: 'Name of the artifact containing backend/unit test XML results'
+        type: string
+        default: 'backend-test-results'
+      backend-xml-path:
+        description: 'Path to the backend JUnit XML file within the artifact'
+        type: string
+        default: 'test-results/backend-results.xml'
+      features-dir:
+        description: 'Path to the directory containing Gherkin .feature files'
+        type: string
+        default: 'test/acceptance/features'
+      security-artifact-name:
+        description: 'Name of the artifact containing security scan JSON reports'
+        type: string
+        default: 'security-reports'
+      python-version:
+        description: 'Python version to use for report generation'
+        type: string
+        default: '3.11'
+
+permissions:
+  contents: write
+
+jobs:
+  generate-report:
+    name: Generate & Publish Report
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Download BDD test results
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: ${{ inputs.bdd-artifact-name }}
+          path: test-results/
+
+      - name: Download backend test results
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: ${{ inputs.backend-artifact-name }}
+          path: test-results/
+
+      - name: Download security scan results
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: ${{ inputs.security-artifact-name }}
+          path: security-reports/
+
+      - name: Generate release report
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          BDD_XML_PATH: ${{ inputs.bdd-xml-path }}
+          BACKEND_XML_PATH: ${{ inputs.backend-xml-path }}
+          FEATURES_DIR: ${{ inputs.features-dir }}
+        run: |
+          SECURITY_ARGS=""
+          [ -f "security-reports/bandit-report.json" ] \
+            && SECURITY_ARGS="$SECURITY_ARGS --security-bandit security-reports/bandit-report.json"
+          [ -f "security-reports/semgrep-report.json" ] \
+            && SECURITY_ARGS="$SECURITY_ARGS --security-semgrep security-reports/semgrep-report.json"
+
+          python scripts/generate_release_notes.py \
+            --bdd-xml      "$BDD_XML_PATH" \
+            --backend-xml  "$BACKEND_XML_PATH" \
+            --features-dir "$FEATURES_DIR" \
+            --output-dir   release/ \
+            --owner        "${REPO%/*}" \
+            --repo         "${REPO#*/}" \
+            --release-tag  "$REF_NAME" \
+            --commit       "$COMMIT_SHA" \
+            --run-url      "${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}" \
+            $SECURITY_ARGS
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: silverline-release-notes
+          path: release/
+          retention-days: 90
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/executive-report.json
+            release/executive-report.html
+            release/unit-test-summary.json
