@@ -90,19 +90,8 @@ jobs:
           echo "Verifying CI status for commit ${COMMIT_SHA:0:8} in ${REPO}..."
           CHECKS_JSON=$(gh api "repos/${REPO}/commits/${COMMIT_SHA}/check-runs" --paginate)
           TOTAL=$(echo "$CHECKS_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['total_count'])")
-          EXCLUDED='{"Deploy Release Reports"}'
-          INCOMPLETE=$(echo "$CHECKS_JSON" | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-excluded={'Deploy Release Reports'}
-print(len([r for r in d['check_runs'] if r['name'] not in excluded and r['status']!='completed']))
-")
-          FAILURES=$(echo "$CHECKS_JSON" | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-excluded={'Deploy Release Reports'}
-print(len([r for r in d['check_runs'] if r['name'] not in excluded and r['status']=='completed' and r['conclusion'] not in ('success','skipped','neutral')]))
-")
+          INCOMPLETE=$(echo "$CHECKS_JSON" | python3 -c "import json,sys; excl={'Deploy Release Reports'}; d=json.load(sys.stdin)['check_runs']; print(len([r for r in d if r['name'] not in excl and r['status']!='completed']))")
+          FAILURES=$(echo "$CHECKS_JSON" | python3 -c "import json,sys; excl={'Deploy Release Reports'}; ok={'success','skipped','neutral'}; d=json.load(sys.stdin)['check_runs']; print(len([r for r in d if r['name'] not in excl and r['status']=='completed' and r['conclusion'] not in ok]))")
           [ "$TOTAL" -eq 0 ] && { echo "::error::No CI checks found for ${COMMIT_SHA:0:8}"; exit 1; }
           [ "$INCOMPLETE" -gt 0 ] && { echo "::error::${INCOMPLETE} CI check(s) still in progress"; exit 1; }
           [ "$FAILURES" -gt 0 ] && { echo "::error::${FAILURES} CI check(s) failed — refusing to deploy"; exit 1; }
