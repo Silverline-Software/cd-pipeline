@@ -30,12 +30,20 @@ def ctx():
 
 @pytest.fixture
 def with_manifest():
-    """Copy examples/requirements_manifest.py → scripts/ and clean up after."""
+    """Ensure scripts/requirements_manifest.py exists for the duration of the test.
+
+    If a real manifest is already in place (as in this repo), it is left
+    untouched after the test. If it doesn't exist, the example is copied in
+    and removed on teardown.
+    """
     src = ROOT / "examples" / "requirements_manifest.py"
     dst = ROOT / "scripts" / "requirements_manifest.py"
-    shutil.copy(src, dst)
+    pre_existing = dst.exists()
+    if not pre_existing:
+        shutil.copy(src, dst)
     yield dst
-    dst.unlink(missing_ok=True)
+    if not pre_existing:
+        dst.unlink(missing_ok=True)
 
 
 # ── Report Generation steps ───────────────────────────────────────────────────
