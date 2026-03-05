@@ -176,7 +176,9 @@ jobs:
         run: |
           # Download docs-site.zip from the latest release that has it.
           # Silently skip if no release ships docs (e.g. this repo itself).
-          DOCS_TAG=$(gh release list -R "$REPO" --limit 20             --json tagName,assets             --jq '.[] | select(.assets[]?.name == "docs-site.zip") | .tagName'             | head -1)
+          DOCS_TAG=$(gh api "repos/${REPO}/releases?per_page=20" \
+            --jq '.[] | select(.assets[]?.name == "docs-site.zip") | .tag_name' \
+            | head -1)
 
           if [ -z "$DOCS_TAG" ]; then
             echo "No release contains docs-site.zip — skipping docs deployment"
