@@ -40,7 +40,7 @@ on:
         default: ''
     secrets:
       RELEASE_NOTES_GCP_SA_KEY:
-        required: true
+        required: false
 
 permissions:
   contents: read
