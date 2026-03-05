@@ -1,4 +1,4 @@
-name: Silverline Release Documentation CI
+name: Silverline CD Pipeline CI
 
 # Runs the full test suite and generates a branded release report on every push.
 # On tag push: attaches reports to a GitHub release so the CD workflow can deploy them.
@@ -59,15 +59,15 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           python scripts/generate_release_notes.py \
-            --bdd-xml     test-results/bdd-results.xml \
-            --backend-xml test-results/unit-results.xml \
+            --bdd-xml      test-results/bdd-results.xml \
+            --backend-xml  test-results/unit-results.xml \
             --features-dir test/acceptance/features/ \
-            --output-dir  release/ \
-            --owner       Silverline-Software \
-            --repo        release-documentation \
-            --release-tag "$REF_NAME" \
-            --commit      "$COMMIT_SHA" \
-            --run-url     "${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}"
+            --output-dir   release/ \
+            --owner        "${REPO%/*}" \
+            --repo         "${REPO#*/}" \
+            --release-tag  "$REF_NAME" \
+            --commit       "$COMMIT_SHA" \
+            --run-url      "${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}"
 
       - name: Upload reports artifact
         uses: actions/upload-artifact@v4
