@@ -50,6 +50,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # If no tag was specified, auto-detect the latest published release tag
+          if [ -z "$CURRENT_TAG" ]; then
+            CURRENT_TAG=$(gh release list -R "$REPO" --limit 1 \
+              --json tagName --jq '.[0].tagName')
+            echo "Auto-detected latest release tag: ${CURRENT_TAG}"
+          fi
+
           # Resolve tag → commit SHA (handles both lightweight and annotated tags)
           OBJ=$(gh api "repos/${REPO}/git/ref/tags/${CURRENT_TAG}" --jq '.object')
           OBJ_TYPE=$(echo "$OBJ" | python3 -c "import json,sys; print(json.load(sys.stdin)['type'])")
