@@ -425,25 +425,26 @@ jobs:
 
       - name: Create Firebase config
         run: |
-          cat > firebase.json << 'FIREBASE_EOF'
-          {
+          python3 - << 'PYEOF'
+          import json, os
+          cfg = {
             "hosting": {
               "public": "public",
               "ignore": ["firebase.json", "**/.*"],
-              "cleanUrls": true,
+              "cleanUrls": True,
               "headers": [
-                {
-                  "source": "**/*.html",
-                  "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
-                },
-                {
-                  "source": "**/*.json",
-                  "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
-                }
+                {"source": "**/*.html", "headers": [{"key": "Cache-Control", "value": "no-cache"}]},
+                {"source": "**/*.json", "headers": [{"key": "Cache-Control", "value": "no-cache"}]}
               ]
             }
           }
-          FIREBASE_EOF
+          site_id = os.environ.get("FIREBASE_SITE_ID", "")
+          if site_id:
+            cfg["hosting"]["site"] = site_id
+          with open("firebase.json", "w") as f:
+            json.dump(cfg, f, indent=2)
+          print("firebase.json written:", json.dumps(cfg, indent=2))
+          PYEOF
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -473,12 +474,7 @@ jobs:
           echo "Deploying to Firebase project: $FIREBASE_PROJECT"
           echo "Directory structure:"
           find public/ -name "*.html" | sort
-          # Deploy to specific site if FIREBASE_SITE_ID is set, else default site
-          if [ -n "$FIREBASE_SITE_ID" ]; then
-            firebase deploy --only hosting --project "$FIREBASE_PROJECT" --site "$FIREBASE_SITE_ID"
-          else
-            firebase deploy --only hosting --project "$FIREBASE_PROJECT"
-          fi
+          firebase deploy --only hosting --project "$FIREBASE_PROJECT"
 
       - name: Deployment summary
         env:
