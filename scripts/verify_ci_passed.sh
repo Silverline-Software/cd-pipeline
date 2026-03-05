@@ -36,8 +36,11 @@ print(len([r for r in d['check_runs'] if r['status'] != 'completed']))
 FAILURES=$(echo "$CHECKS_JSON" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
+# Exclude the CD workflow's own job to avoid self-blocking on re-runs
+excluded = {'Deploy Release Reports'}
 print(len([r for r in d['check_runs']
-           if r['status'] == 'completed'
+           if r['name'] not in excluded
+           and r['status'] == 'completed'
            and r['conclusion'] not in ('success', 'skipped', 'neutral')]))
 ")
 
