@@ -49,6 +49,12 @@ CATEGORIES = {
         "phase": 1,
         "order": 5,
     },
+    "CICD": {
+        "name": "CI/CD Release Pipeline",
+        "description": "End-to-end guarantee that only verified, CI-approved builds reach Firebase Hosting.",
+        "phase": 1,
+        "order": 6,
+    },
 }
 
 # ── Requirements ──────────────────────────────────────────────────────────────
@@ -82,6 +88,11 @@ REQUIREMENTS: dict[str, tuple[str, str, str]] = {
     "SITE-01": ("CD pipeline creates the Firebase Hosting site if it does not exist", "P0", "Implemented"),
     "SITE-02": ("CD pipeline is idempotent — re-running when site exists does not fail", "P0", "Implemented"),
     "SITE-03": ("CD pipeline fails loudly on unexpected Firebase errors", "P0", "Implemented"),
+
+    # ── CICD ──────────────────────────────────────────────────────────────────
+    "CICD-001": ("Official releases are only deployed when all CI checks have passed", "P0", "Implemented"),
+    "CICD-002": ("Deployment is blocked when CI checks are still in progress", "P0", "Implemented"),
+    "CICD-003": ("Deployment is blocked when no CI checks exist for the release commit", "P0", "Implemented"),
 }
 
 

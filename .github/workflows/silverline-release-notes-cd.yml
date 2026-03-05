@@ -42,6 +42,24 @@ jobs:
       FIREBASE_SITE_ID: ${{ vars.FIREBASE_SITE_ID || '' }}
 
     steps:
+      - name: Verify CI passed for this release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Resolve tag → commit SHA (handles both lightweight and annotated tags)
+          OBJ=$(gh api "repos/${REPO}/git/ref/tags/${CURRENT_TAG}" --jq '.object')
+          OBJ_TYPE=$(echo "$OBJ" | python3 -c "import json,sys; print(json.load(sys.stdin)['type'])")
+          OBJ_SHA=$(echo "$OBJ"  | python3 -c "import json,sys; print(json.load(sys.stdin)['sha'])")
+
+          if [ "$OBJ_TYPE" = "tag" ]; then
+            # Annotated tag — dereference to commit
+            COMMIT_SHA=$(gh api "repos/${REPO}/git/tags/${OBJ_SHA}" --jq '.object.sha')
+          else
+            COMMIT_SHA="$OBJ_SHA"
+          fi
+
+          bash scripts/verify_ci_passed.sh "$REPO" "$COMMIT_SHA"
+
       - name: Fetch all releases and download reports
         env:
           GH_TOKEN: ${{ github.token }}

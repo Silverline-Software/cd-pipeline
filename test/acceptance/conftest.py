@@ -360,3 +360,81 @@ def script_exits_nonzero(ctx):
 @then(parsers.parse('the output contains "{text}"'))
 def output_contains(ctx, text):
     assert text in ctx["output"], f'"{text}" not found in output:\n{ctx["output"]}'
+
+
+# ── CI/CD Deployment Gate steps ───────────────────────────────────────────────
+
+def _checks_json(runs: list[dict]) -> str:
+    import json
+    return json.dumps({"total_count": len(runs), "check_runs": runs})
+
+
+def _make_mock_gh(tmp_path, response_json: str) -> Path:
+    """Write a mock gh executable that returns response_json on any 'api' call."""
+    bin_dir = tmp_path / "gh-bin"
+    bin_dir.mkdir(exist_ok=True)
+    gh = bin_dir / "gh"
+    # Escape the JSON for embedding in bash heredoc
+    escaped = response_json.replace("'", "'\\''")
+    gh.write_text(f"#!/usr/bin/env bash\necho '{escaped}'\nexit 0\n")
+    gh.chmod(0o755)
+    return bin_dir
+
+
+@given("the CI gate script is available")
+def ci_gate_available():
+    assert (ROOT / "scripts" / "verify_ci_passed.sh").exists()
+
+
+@given("a mock GitHub API reporting 2 successful check runs")
+def mock_gh_all_pass(ctx, tmp_path):
+    runs = [
+        {"status": "completed", "conclusion": "success", "name": "Test Suite"},
+        {"status": "completed", "conclusion": "success", "name": "Attach Reports"},
+    ]
+    ctx["mock_bin"] = _make_mock_gh(tmp_path, _checks_json(runs))
+
+
+@given("a mock GitHub API reporting 1 failed and 1 successful check run")
+def mock_gh_one_fail(ctx, tmp_path):
+    runs = [
+        {"status": "completed", "conclusion": "failure", "name": "Test Suite"},
+        {"status": "completed", "conclusion": "success", "name": "Attach Reports"},
+    ]
+    ctx["mock_bin"] = _make_mock_gh(tmp_path, _checks_json(runs))
+
+
+@given("a mock GitHub API reporting 1 in-progress check run")
+def mock_gh_in_progress(ctx, tmp_path):
+    runs = [
+        {"status": "in_progress", "conclusion": None, "name": "Test Suite"},
+    ]
+    ctx["mock_bin"] = _make_mock_gh(tmp_path, _checks_json(runs))
+
+
+@given("a mock GitHub API reporting no check runs")
+def mock_gh_no_checks(ctx, tmp_path):
+    ctx["mock_bin"] = _make_mock_gh(tmp_path, _checks_json([]))
+
+
+@when(parsers.parse('I run the CI gate for repo "{repo}" commit "{sha}"'))
+def run_ci_gate(ctx, repo, sha):
+    env = {**os.environ, "PATH": str(ctx["mock_bin"]) + ":" + os.environ["PATH"]}
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "verify_ci_passed.sh"), repo, sha],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    ctx["returncode"] = result.returncode
+    ctx["output"] = result.stdout + result.stderr
+
+
+@then("the gate exits with code 0")
+def gate_exits_zero(ctx):
+    assert ctx["returncode"] == 0, f"Gate failed unexpectedly:\n{ctx['output']}"
+
+
+@then("the gate exits with a non-zero code")
+def gate_exits_nonzero(ctx):
+    assert ctx["returncode"] != 0, f"Gate should have blocked but succeeded:\n{ctx['output']}"
