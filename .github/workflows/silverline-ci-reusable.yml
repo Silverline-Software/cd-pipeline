@@ -52,9 +52,6 @@ on:
         type: string
         default: '3.11'
 
-permissions:
-  contents: write
-
 jobs:
   generate-report:
     name: Generate & Publish Report
