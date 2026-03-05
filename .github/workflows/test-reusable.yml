@@ -1,4 +1,4 @@
-name: Test Reusable - Job-Level Permissions
+name: Test Reusable - No Permissions
 
 on:
   workflow_call:
@@ -11,9 +11,6 @@ jobs:
   hello:
     name: Hello World
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: read
     steps:
       - name: Say hello
-        run: echo "job-level permissions test"
+        run: echo "no permissions test"
