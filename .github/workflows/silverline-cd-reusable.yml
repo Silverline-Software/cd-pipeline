@@ -1,0 +1,565 @@
+name: Silverline CD — Reusable Firebase Hosting Deploy
+
+# Reusable workflow: deploy Silverline release reports to Firebase Hosting.
+#
+# Callers pass their firebase-site-id, project-display-name, and
+# RELEASE_NOTES_GCP_SA_KEY secret.  Everything else falls back to
+# repository variables (FIREBASE_PROJECT_ID, DEFAULT_ENV, etc.).
+#
+# Tag convention:  <env_name>-v<X.Y.Z>[-rc]
+#   Examples:
+#     pre-release-registry-v0.1.0-rc  →  /pre-release-registry/v0.1.0/rc
+#     pre-release-registry-v0.1.0     →  /pre-release-registry/v0.1.0/
+#     release-v1.0.0                  →  /release/v1.0.0/
+#     v1.0.0  (bare)                  →  /release/v1.0.0/  (DEFAULT_ENV fallback)
+#
+# Root (/) serves the latest report.  /versions lists all.
+
+on:
+  workflow_call:
+    inputs:
+      firebase-site-id:
+        description: 'Firebase Hosting site ID (overrides FIREBASE_SITE_ID/HOSTING_SITE vars)'
+        type: string
+        default: ''
+      project-display-name:
+        description: 'Human-readable project name shown in reports (overrides PROJECT_DISPLAY_NAME var)'
+        type: string
+        default: ''
+      default-env:
+        description: 'Environment label for bare vX.Y.Z tags (overrides DEFAULT_ENV var)'
+        type: string
+        default: 'release'
+      environment:
+        description: 'GitHub environment name to use for deployment secrets'
+        type: string
+        default: 'release-notes-hosting'
+      release-tag:
+        description: 'Specific git tag to gate CI on (auto-detected from latest release if empty)'
+        type: string
+        default: ''
+    secrets:
+      RELEASE_NOTES_GCP_SA_KEY:
+        required: true
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  deploy:
+    name: Deploy Release Reports
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.environment || 'release-notes-hosting' }}
+
+    env:
+      CURRENT_TAG: ${{ inputs.release-tag || github.event.release.tag_name || '' }}
+      REPO: ${{ github.repository }}
+      DEFAULT_ENV: ${{ inputs.default-env || vars.DEFAULT_ENV || 'release' }}
+      PROJECT_DISPLAY_NAME: ${{ inputs.project-display-name || vars.PROJECT_DISPLAY_NAME || 'Release Reports' }}
+      FIREBASE_SITE_ID: ${{ inputs.firebase-site-id || vars.FIREBASE_SITE_ID || vars.HOSTING_SITE || '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify CI passed for this release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # If no tag was specified, auto-detect the latest published release tag
+          if [ -z "$CURRENT_TAG" ]; then
+            CURRENT_TAG=$(gh release list -R "$REPO" --limit 1 \
+              --json tagName --jq '.[0].tagName')
+            echo "Auto-detected latest release tag: ${CURRENT_TAG}"
+          fi
+
+          # Resolve tag → commit SHA (handles both lightweight and annotated tags)
+          OBJ=$(gh api "repos/${REPO}/git/ref/tags/${CURRENT_TAG}" --jq '.object')
+          OBJ_TYPE=$(echo "$OBJ" | python3 -c "import json,sys; print(json.load(sys.stdin)['type'])")
+          OBJ_SHA=$(echo "$OBJ"  | python3 -c "import json,sys; print(json.load(sys.stdin)['sha'])")
+
+          if [ "$OBJ_TYPE" = "tag" ]; then
+            # Annotated tag — dereference to commit
+            COMMIT_SHA=$(gh api "repos/${REPO}/git/tags/${OBJ_SHA}" --jq '.object.sha')
+          else
+            COMMIT_SHA="$OBJ_SHA"
+          fi
+
+          bash scripts/verify_ci_passed.sh "$REPO" "$COMMIT_SHA"
+
+      - name: Fetch all releases and download reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p public
+
+          # ── Parse tag into env / version / rc ──
+          # Tag format: <env_name>-v<X.Y.Z>[-rc]
+          # Bare tags (v1.0.0) use DEFAULT_ENV.
+          parse_tag() {
+            local tag="$1"
+            local env_name version is_rc
+
+            if [[ "$tag" =~ ^(.+)-v([0-9]+\.[0-9]+\.[0-9]+)(-rc)?$ ]]; then
+              env_name="${BASH_REMATCH[1]}"
+              version="v${BASH_REMATCH[2]}"
+              [[ -n "${BASH_REMATCH[3]}" ]] && is_rc="true" || is_rc="false"
+            elif [[ "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)(-rc)?$ ]]; then
+              env_name="$DEFAULT_ENV"
+              version="v${BASH_REMATCH[1]}"
+              [[ -n "${BASH_REMATCH[2]}" ]] && is_rc="true" || is_rc="false"
+            else
+              # Non-standard tag — use full tag as version, DEFAULT_ENV
+              env_name="$DEFAULT_ENV"
+              version="$tag"
+              is_rc="false"
+            fi
+
+            echo "${env_name}|${version}|${is_rc}"
+          }
+
+          # Get all releases (newest first)
+          gh release list -R "$REPO" --limit 100 \
+            --json tagName,isPrerelease,publishedAt,name \
+            --jq '.[] | "\(.tagName)\t\(.isPrerelease)\t\(.publishedAt)\t\(.name)"' \
+            > /tmp/all-releases.tsv
+
+          echo "Found $(wc -l < /tmp/all-releases.tsv) releases"
+
+          # Download executive-report.html for each release
+          # TSV columns: tag | prerelease | published | name | env | version | is_rc
+          > /tmp/versions.tsv
+          while IFS=$'\t' read -r tag prerelease published name; do
+            parsed=$(parse_tag "$tag")
+            IFS='|' read -r env_name version is_rc <<< "$parsed"
+
+            # Build directory path: /<env>/<version>[/rc]
+            if [ "$is_rc" = "true" ]; then
+              dest="public/${env_name}/${version}/rc"
+            else
+              dest="public/${env_name}/${version}"
+            fi
+
+            mkdir -p "$dest"
+            if gh release download "$tag" -R "$REPO" -p "executive-report.html" -D "$dest/" 2>/dev/null; then
+              cp "$dest/executive-report.html" "$dest/index.html"
+              printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "${tag}" "${prerelease}" "${published}" "${name}" "${env_name}" "${version}" "${is_rc}" >> /tmp/versions.tsv
+              echo "  Downloaded: ${env_name}/${version}$([ "$is_rc" = "true" ] && echo "/rc")"
+
+              # Also grab JSON reports
+              for f in executive-report.json unit-test-summary.json coverage-summary.json; do
+                gh release download "$tag" -R "$REPO" -p "$f" -D "$dest/" 2>/dev/null || true
+              done
+            else
+              rm -rf "$dest"
+              echo "  Skipped: $tag (no report)"
+            fi
+          done < /tmp/all-releases.tsv
+
+          VERSION_COUNT=$(wc -l < /tmp/versions.tsv | tr -d ' ')
+          echo "Reports downloaded for $VERSION_COUNT versions"
+
+          if [ "$VERSION_COUNT" -eq 0 ]; then
+            echo "::error::No releases have executive-report.html — nothing to deploy"
+            exit 1
+          fi
+
+          # Copy latest (first line = newest) as root index
+          LATEST_ENV=$(head -1 /tmp/versions.tsv | cut -f5)
+          LATEST_VER=$(head -1 /tmp/versions.tsv | cut -f6)
+          LATEST_RC=$(head -1 /tmp/versions.tsv | cut -f7)
+          if [ "$LATEST_RC" = "true" ]; then
+            cp "public/${LATEST_ENV}/${LATEST_VER}/rc/index.html" public/index.html
+          else
+            cp "public/${LATEST_ENV}/${LATEST_VER}/index.html" public/index.html
+          fi
+          echo "Latest: ${LATEST_ENV}/${LATEST_VER}$([ "$LATEST_RC" = "true" ] && echo "/rc")"
+
+          # Create per-environment latest index
+          for env_dir in public/*/; do
+            env_name=$(basename "$env_dir")
+            [ "$env_name" = "index.html" ] && continue
+            # Find newest tag in this environment (first match in versions.tsv)
+            latest_line=$(awk -F'\t' -v e="$env_name" '$5 == e { print; exit }' /tmp/versions.tsv)
+            if [ -n "$latest_line" ]; then
+              l_ver=$(echo "$latest_line" | cut -f6)
+              l_rc=$(echo "$latest_line" | cut -f7)
+              if [ "$l_rc" = "true" ]; then
+                src="public/${env_name}/${l_ver}/rc/index.html"
+              else
+                src="public/${env_name}/${l_ver}/index.html"
+              fi
+              [ -f "$src" ] && cp "$src" "public/${env_name}/index.html" && echo "  ${env_name}/index.html -> ${l_ver}"
+            fi
+          done
+
+      - name: Deploy latest API docs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Download docs-site.zip from the latest release that has it.
+          # Silently skip if no release ships docs (e.g. this repo itself).
+          DOCS_TAG=$(gh api "repos/${REPO}/releases?per_page=20" \
+            --jq '.[] | select(.assets[]?.name == "docs-site.zip") | .tag_name' \
+            | head -1)
+
+          if [ -z "$DOCS_TAG" ]; then
+            echo "No release contains docs-site.zip — skipping docs deployment"
+          else
+            echo "Downloading docs-site.zip from $DOCS_TAG"
+            gh release download "$DOCS_TAG" -R "$REPO" -p "docs-site.zip" -D /tmp/
+            mkdir -p public/docs
+            unzip -q /tmp/docs-site.zip -d public/docs
+            echo "Docs deployed to /docs/ (source: $DOCS_TAG)"
+          fi
+
+      - name: Inject version switcher into reports
+        run: |
+          python3 << 'PYEOF'
+          import os, html, re
+
+          project_name = os.environ.get("PROJECT_DISPLAY_NAME", "Release Reports")
+
+          # Read version list
+          # Columns: tag | prerelease | published | name | env | version | is_rc
+          versions = []
+          with open("/tmp/versions.tsv") as f:
+              for line in f:
+                  parts = line.strip().split("\t")
+                  if len(parts) >= 7:
+                      versions.append({
+                          "tag": parts[0],
+                          "prerelease": parts[1] == "true",
+                          "date": parts[2][:10],
+                          "name": parts[3] if parts[3] else parts[0],
+                          "env": parts[4],
+                          "version": parts[5],
+                          "is_rc": parts[6] == "true",
+                      })
+
+          if not versions:
+              print("No versions to process")
+              exit(0)
+
+          def url_path(v):
+              """Build the URL path for a version entry."""
+              p = f"/{v['env']}/{v['version']}/"
+              if v["is_rc"]:
+                  p += "rc/"
+              return p
+
+          latest = versions[0]
+
+          # Group by environment
+          envs = {}
+          for v in versions:
+              envs.setdefault(v["env"], []).append(v)
+
+          # Build version selector with optgroups
+          options_html = ""
+          for env_name, env_versions in envs.items():
+              env_label = html.escape(env_name.replace("-", " ").title())
+              options_html += f'<optgroup label="{env_label}">\n'
+              for v in env_versions:
+                  path = html.escape(url_path(v))
+                  label = v["version"]
+                  if v["is_rc"]:
+                      label += " RC"
+                  options_html += f'<option value="{path}">{html.escape(label)}</option>\n'
+              options_html += '</optgroup>\n'
+
+          # Version bar HTML
+          bar_html = f'''<div id="vbar" style="
+              position:fixed;top:0;left:0;right:0;z-index:999;
+              display:flex;align-items:center;justify-content:space-between;
+              padding:0.35rem 1.2rem;
+              background:rgba(6,6,9,0.92);backdrop-filter:blur(8px);
+              border-bottom:1px solid rgba(25,25,48,0.8);
+              font-family:'Outfit','Helvetica Neue',sans-serif;font-size:0.72rem;
+          ">
+              <span style="color:#505068;letter-spacing:0.08em;">
+                  SILVERLINE RELEASE REPORTS
+              </span>
+              <div style="display:flex;align-items:center;gap:0.6rem;">
+                  <select id="vsel" onchange="if(this.value)window.location.href=this.value"
+                      style="background:#0e0e1a;color:#d8d8e8;border:1px solid #1a1a30;
+                      border-radius:6px;padding:0.25rem 0.5rem;font-size:0.72rem;
+                      font-family:inherit;cursor:pointer;outline:none;">
+                      {options_html}
+                  </select>
+                  <a href="/versions" style="color:#8888a0;text-decoration:none;font-size:0.68rem;">
+                      All
+                  </a>
+                  <a href="/" style="color:#8888a0;text-decoration:none;font-size:0.68rem;">
+                      Latest
+                  </a>
+                  <a href="/docs/" style="color:#8888a0;text-decoration:none;font-size:0.68rem;">
+                      Docs
+                  </a>
+              </div>
+          </div>
+          <div style="height:2rem;"></div>'''
+
+          bar_oneline = bar_html.replace("\n", "")
+
+          def inject_bar(filepath, selected_path):
+              """Inject the version bar into an HTML file, selecting the given path."""
+              if not os.path.exists(filepath):
+                  return False
+              content = open(filepath).read()
+              sel_esc = html.escape(selected_path)
+              this_bar = bar_oneline.replace(
+                  f'value="{sel_esc}"',
+                  f'value="{sel_esc}" selected'
+              )
+              content = content.replace("<body>", f"<body>{this_bar}", 1)
+              open(filepath, "w").write(content)
+              return True
+
+          count = 0
+
+          # Inject into each version's report
+          for v in versions:
+              path = url_path(v)
+              filepath = f"public{path}index.html"
+              if inject_bar(filepath, path):
+                  print(f"  Injected: {path}")
+                  count += 1
+
+          # Inject into per-environment latest
+          for env_name, env_versions in envs.items():
+              latest_v = env_versions[0]
+              filepath = f"public/{env_name}/index.html"
+              if inject_bar(filepath, url_path(latest_v)):
+                  print(f"  Injected: /{env_name}/ (env latest)")
+                  count += 1
+
+          # Inject into root
+          if inject_bar("public/index.html", url_path(latest)):
+              print(f"  Injected: / (root latest)")
+              count += 1
+
+          print(f"Version switcher injected into {count} pages")
+          PYEOF
+
+      - name: Generate versions index page
+        run: |
+          python3 << 'PYEOF'
+          import html, os
+
+          project_name = os.environ.get("PROJECT_DISPLAY_NAME", "Release Reports")
+
+          versions = []
+          with open("/tmp/versions.tsv") as f:
+              for line in f:
+                  parts = line.strip().split("\t")
+                  if len(parts) >= 7:
+                      versions.append({
+                          "tag": parts[0],
+                          "prerelease": parts[1] == "true",
+                          "date": parts[2][:10],
+                          "name": parts[3] if parts[3] else parts[0],
+                          "env": parts[4],
+                          "version": parts[5],
+                          "is_rc": parts[6] == "true",
+                      })
+
+          def url_path(v):
+              p = f"/{v['env']}/{v['version']}/"
+              if v["is_rc"]:
+                  p += "rc/"
+              return p
+
+          # Group by environment
+          envs = {}
+          for v in versions:
+              envs.setdefault(v["env"], []).append(v)
+
+          # Build sections per environment
+          sections = ""
+          for env_name, env_versions in envs.items():
+              env_label = html.escape(env_name.replace("-", " ").title())
+              rows = ""
+              for i, v in enumerate(env_versions):
+                  path = html.escape(url_path(v))
+                  ver_label = html.escape(v["version"])
+                  rc_badge = ""
+                  if v["is_rc"]:
+                      rc_badge = '<span style="color:#fbbf24;background:rgba(251,191,36,0.08);font-size:0.6rem;padding:0.1rem 0.4rem;border-radius:3px;margin-left:0.4rem;">RC</span>'
+                  latest_badge = ""
+                  if i == 0:
+                      latest_badge = '<span style="color:#34d399;background:rgba(52,211,153,0.08);font-size:0.6rem;padding:0.1rem 0.4rem;border-radius:3px;margin-left:0.4rem;">LATEST</span>'
+                  rows += f'''<a href="{path}" style="
+                      display:flex;justify-content:space-between;align-items:center;
+                      padding:0.85rem 1.15rem;text-decoration:none;
+                      border-bottom:1px solid rgba(255,255,255,0.02);
+                      transition:background 0.15s;
+                  " onmouseover="this.style.background='rgba(255,255,255,0.015)'"
+                     onmouseout="this.style.background='transparent'">
+                      <span style="display:flex;align-items:center;gap:0.4rem;">
+                          <code style="font-family:'DM Mono',monospace;font-size:0.8rem;color:#d8d8e8;">{ver_label}</code>
+                          {rc_badge}{latest_badge}
+                      </span>
+                      <span style="font-size:0.72rem;color:#505068;">{v["date"]}</span>
+                  </a>\n'''
+
+              sections += f'''
+              <div style="margin-bottom:2rem;">
+                  <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.75rem;">
+                      <h2 style="font-family:'Outfit','Helvetica Neue',sans-serif;font-weight:400;font-size:1.1rem;letter-spacing:-0.01em;">
+                          {env_label}
+                      </h2>
+                      <span style="font-size:0.68rem;color:#505068;background:rgba(80,80,104,0.1);padding:0.15rem 0.5rem;border-radius:4px;">
+                          {len(env_versions)} releases
+                      </span>
+                  </div>
+                  <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden;">
+                      {rows}
+                  </div>
+              </div>\n'''
+
+          page = f'''<!DOCTYPE html>
+          <html lang="en">
+          <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>{html.escape(project_name)} — Silverline Software</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400&family=DM+Sans:wght@400;500&family=Outfit:wght@300;400;500;600;700&family=Syncopate:wght@700&display=swap" rel="stylesheet">
+          <style>
+              :root {{ --bg-deep:#060609; --bg-surface:#0e0e1a; --border-subtle:#1a1a30; --text-primary:#d8d8e8; --text-muted:#505068; }}
+              *, *::before, *::after {{ margin:0; padding:0; box-sizing:border-box; }}
+              body {{ font-family:'DM Sans','Helvetica',sans-serif; background:var(--bg-deep);
+                  background-image:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(40,40,80,0.35) 0%,transparent 70%);
+                  color:var(--text-primary); min-height:100vh; -webkit-font-smoothing:antialiased; }}
+              @keyframes shimmer {{ 0%{{background-position:-200% center}} 100%{{background-position:200% center}} }}
+          </style>
+          </head>
+          <body>
+          <div style="max-width:700px;margin:0 auto;padding:3rem 1.5rem;">
+              <div style="text-align:center;margin-bottom:3rem;">
+                  <div style="font-family:'Syncopate','Arial Black',sans-serif;font-weight:700;font-size:1rem;letter-spacing:0.4em;
+                      background:linear-gradient(90deg,#444 0%,#888 20%,#ccc 40%,#fff 50%,#ccc 60%,#888 80%,#444 100%);
+                      background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+                      background-clip:text;animation:shimmer 5s ease-in-out infinite;margin-bottom:0.75rem;">
+                      SILVERLINE SOFTWARE
+                  </div>
+                  <div style="height:1px;background:linear-gradient(90deg,transparent 0%,#2a2a40 12%,#555 40%,#999 50%,#555 60%,#2a2a40 88%,transparent 100%);max-width:400px;margin:0.75rem auto;"></div>
+                  <h1 style="font-family:'Outfit','Helvetica Neue',sans-serif;font-weight:300;font-size:2rem;margin:1rem 0 0.5rem;letter-spacing:-0.02em;">
+                      {html.escape(project_name)}
+                  </h1>
+                  <p style="font-size:0.82rem;color:var(--text-muted);">
+                      Functionality reports organized by release environment
+                  </p>
+              </div>
+              {sections}
+              <p style="text-align:center;margin-top:1rem;font-size:0.72rem;color:var(--text-muted);">
+                  {len(versions)} releases across {len(envs)} environments
+              </p>
+          </div>
+          </body>
+          </html>'''
+
+          with open("public/versions.html", "w") as f:
+              f.write(page)
+          print(f"Generated versions index: {len(versions)} releases, {len(envs)} environments")
+          PYEOF
+
+      - name: Create Firebase config
+        run: |
+          python3 - << 'PYEOF'
+          import json, os
+          cfg = {
+            "hosting": {
+              "public": "public",
+              "ignore": ["firebase.json", "**/.*"],
+              "cleanUrls": True,
+              "headers": [
+                {"source": "**/*.html", "headers": [{"key": "Cache-Control", "value": "no-cache"}]},
+                {"source": "**/*.json", "headers": [{"key": "Cache-Control", "value": "no-cache"}]}
+              ]
+            }
+          }
+          site_id = os.environ.get("FIREBASE_SITE_ID", "")
+          if site_id:
+            cfg["hosting"]["site"] = site_id
+          with open("firebase.json", "w") as f:
+            json.dump(cfg, f, indent=2)
+          print("firebase.json written:", json.dumps(cfg, indent=2))
+          PYEOF
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install firebase-tools
+        run: npm install -g firebase-tools
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.RELEASE_NOTES_GCP_SA_KEY }}
+
+      - name: Ensure Firebase Hosting site exists
+        env:
+          FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          if [ -n "$FIREBASE_SITE_ID" ]; then
+            bash scripts/ensure_firebase_site.sh "$FIREBASE_PROJECT" "$FIREBASE_SITE_ID"
+          fi
+
+      - name: Deploy to Firebase Hosting
+        env:
+          FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          echo "Deploying to Firebase project: $FIREBASE_PROJECT"
+          echo "Directory structure:"
+          find public/ -name "*.html" | sort
+          firebase deploy --only hosting --project "$FIREBASE_PROJECT"
+
+      - name: Deployment summary
+        env:
+          FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          # Resolve the public base URL — custom domain takes priority
+          if [ -n "$FIREBASE_SITE_ID" ]; then
+            BASE_URL="https://${FIREBASE_SITE_ID}.web.app"
+          else
+            BASE_URL="https://${FIREBASE_PROJECT}.web.app"
+          fi
+          LATEST_ENV=$(head -1 /tmp/versions.tsv | cut -f5)
+          LATEST_VER=$(head -1 /tmp/versions.tsv | cut -f6)
+          LATEST_RC=$(head -1 /tmp/versions.tsv | cut -f7)
+          VERSION_COUNT=$(wc -l < /tmp/versions.tsv | tr -d ' ')
+
+          if [ "$LATEST_RC" = "true" ]; then
+            LATEST_PATH="${LATEST_ENV}/${LATEST_VER}/rc"
+          else
+            LATEST_PATH="${LATEST_ENV}/${LATEST_VER}"
+          fi
+
+          # Derive current tag's path
+          CURRENT_PATH=""
+          if [ -n "$CURRENT_TAG" ]; then
+            CURRENT_PATH=$(awk -F'\t' -v t="$CURRENT_TAG" '$1 == t { p=$5"/"$6; if($7=="true") p=p"/rc"; print p; exit }' /tmp/versions.tsv)
+          fi
+
+          {
+            echo "## Release Notes Deployed"
+            echo ""
+            echo "| Detail | Value |"
+            echo "|--------|-------|"
+            echo "| Triggered by | \`$CURRENT_TAG\` |"
+            echo "| Latest | \`$LATEST_PATH\` |"
+            echo "| Total versions | $VERSION_COUNT |"
+            echo "| Site | ${BASE_URL} |"
+            echo "| Latest report | ${BASE_URL}/ |"
+            echo "| All versions | ${BASE_URL}/versions |"
+            if [ -n "$CURRENT_PATH" ]; then
+              echo "| This version | ${BASE_URL}/${CURRENT_PATH}/ |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
