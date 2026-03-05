@@ -1,8 +1,7 @@
 """
-Cannasol Functionality Reports — JSON Schema Definitions (v1)
+Silverline Release Notes — JSON Schema Definitions (v1)
 
-Separated from the report generator for easy schema updates as the
-Cannasol dashboard evolves. Each constant is a dict describing required
+Separated from the report generator for easy schema updates. Each constant is a dict describing required
 keys and their expected types; used by validate_report() for lightweight
 structural checks (no jsonschema dependency).
 """

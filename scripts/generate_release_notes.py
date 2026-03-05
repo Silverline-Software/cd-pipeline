@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Generate Cannasol Functionality Report artifacts from test results.
+Generate Silverline Release Notes from test results.
 
 Reads JUnit XML (BDD + Django), .feature files, and vitest coverage JSON,
-then outputs standardized JSON + branded HTML reports for the Cannasol dashboard.
+then outputs standardized JSON + branded HTML reports.
 
 All inputs are optional — the script gracefully produces partial reports
 when files are missing.
 
 Usage:
-    python scripts/generate_cannasol_reports.py \
+    python scripts/generate_release_notes.py \
         --bdd-xml test-results/results.xml \
         --backend-xml test-results/backend-results.xml \
         --features-dir test/acceptance/features/ \
@@ -31,7 +31,7 @@ from pathlib import Path
 
 # Import schema definitions from sibling module
 sys.path.insert(0, str(Path(__file__).parent))
-from cannasol_schema import (
+from release_notes_schema import (
     COVERAGE_SUMMARY_SCHEMA,
     EXECUTIVE_REPORT_SCHEMA,
     UNIT_TEST_SUMMARY_SCHEMA,
@@ -775,7 +775,7 @@ class JUnitParser:
 
 
 class ReportBuilder:
-    """Orchestrate generation of all Cannasol report artifacts."""
+    """Orchestrate generation of all Silverline release note artifacts."""
 
     def __init__(
         self,
@@ -1511,7 +1511,7 @@ function filterReqs(q) {{
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Generate Cannasol Functionality Report artifacts."
+        description="Generate Silverline release note artifacts."
     )
     parser.add_argument("--bdd-xml", type=Path, help="Path to BDD JUnit XML")
     parser.add_argument("--backend-xml", type=Path, help="Path to Django JUnit XML")
@@ -1533,7 +1533,7 @@ def main() -> int:
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Cannasol Report Generator v{SCHEMA_VERSION}")
+    print(f"Silverline Release Notes Generator v{SCHEMA_VERSION}")
     print(f"  Output: {args.output_dir}/")
 
     # Parse available inputs

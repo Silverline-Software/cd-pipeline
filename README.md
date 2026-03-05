@@ -1,6 +1,6 @@
 # Silverline Release Documentation
 
-Reusable infrastructure for generating branded **Cannasol Functionality Reports** from test results and deploying them to Firebase Hosting with versioned URLs.
+Reusable infrastructure for generating branded **Silverline Release Notes** from test results and deploying them to Firebase Hosting with versioned URLs.
 
 Each release gets a permanent URL. Reports show requirement coverage with expandable Gherkin scenarios, pass/fail status indicators, and a version switcher for navigating between releases.
 
@@ -56,8 +56,8 @@ Bare tags (no prefix) fall back to the `DEFAULT_ENV` variable (defaults to `rele
 ```bash
 # From your project root
 mkdir -p scripts
-cp <this-repo>/scripts/generate_cannasol_reports.py scripts/
-cp <this-repo>/scripts/cannasol_schema.py scripts/
+cp <this-repo>/scripts/generate_release_notes.py scripts/
+cp <this-repo>/scripts/release_notes_schema.py scripts/
 cp <this-repo>/examples/requirements_manifest.py scripts/requirements_manifest.py
 ```
 
@@ -118,7 +118,7 @@ generate-reports:
         REPO: ${{ github.repository }}
         RUN_ID: ${{ github.run_id }}
       run: |
-        python scripts/generate_cannasol_reports.py \
+        python scripts/generate_release_notes.py \
           --bdd-xml test-results/results.xml \
           --backend-xml test-results/backend-results.xml \
           --features-dir test/acceptance/features/ \
@@ -132,7 +132,7 @@ generate-reports:
     - name: Upload reports
       uses: actions/upload-artifact@v4
       with:
-        name: cannasol-reports
+        name: silverline-release-notes
         path: release/
         retention-days: 90
 ```
@@ -145,7 +145,7 @@ In your release workflow, download the reports artifact and include the files:
 - name: Download reports
   uses: actions/download-artifact@v4
   with:
-    name: cannasol-reports
+    name: silverline-release-notes
     path: release/
 
 - name: Create release
@@ -322,7 +322,7 @@ For AWS services that need to consume report data:
 ## Report Generator CLI Reference
 
 ```
-python scripts/generate_cannasol_reports.py [OPTIONS]
+python scripts/generate_release_notes.py [OPTIONS]
 ```
 
 | Flag | Description | Default |
@@ -405,8 +405,8 @@ def normalize_tag(tag: str) -> str:
 silverline-software/release-documentation/
 ├── README.md                           # This file
 ├── scripts/
-│   ├── generate_cannasol_reports.py    # Report generator (copy to your project)
-│   └── cannasol_schema.py             # JSON schema definitions
+│   ├── generate_release_notes.py      # Report generator (copy to your project)
+│   └── release_notes_schema.py       # JSON schema definitions
 ├── .github/
 │   └── workflows/
 │       └── silverline-release-notes-cd.yml  # CD workflow (copy to your project)
@@ -419,7 +419,7 @@ silverline-software/release-documentation/
 
 ## Adding to a New Project — Checklist
 
-- [ ] Copy `scripts/generate_cannasol_reports.py` and `scripts/cannasol_schema.py`
+- [ ] Copy `scripts/generate_release_notes.py` and `scripts/release_notes_schema.py`
 - [ ] Create `scripts/requirements_manifest.py` (start from template)
 - [ ] Tag Gherkin scenarios with `@req-<TYPE>-<NUM>` or `@FR-<TYPE>-<NUM>`
 - [ ] Add `generate-reports` job to CI workflow

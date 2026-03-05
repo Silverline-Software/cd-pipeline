@@ -1,6 +1,6 @@
 name: Silverline Release Notes CD
 
-# Deploy Cannasol functionality reports to Firebase Hosting.
+# Deploy Silverline release notes to Firebase Hosting.
 #
 # Tag convention:  <env_name>-v<X.Y.Z>[-rc]
 #   Examples:

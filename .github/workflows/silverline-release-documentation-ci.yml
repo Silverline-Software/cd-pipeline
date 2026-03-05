@@ -1,0 +1,100 @@
+name: Silverline Release Documentation CI
+
+# Runs the full test suite and generates a branded release report on every push.
+# On tag push: attaches reports to a GitHub release so the CD workflow can deploy them.
+#
+# Tag format:  release-v<X.Y.Z>
+# Example:     release-v1.0.0  →  deploys to /release/v1.0.0/ on Firebase
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - '*-v*'
+      - 'v*'
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write   # needed for creating/updating GitHub releases on tags
+
+jobs:
+
+  # ── Test Suite ──────────────────────────────────────────────────────────────
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: pip install pytest pytest-bdd
+
+      - name: Run acceptance tests
+        run: |
+          pytest test/acceptance/ \
+            --junit-xml=test-results/bdd-results.xml \
+            -v
+
+      - name: Run unit tests
+        run: |
+          pytest test/unit/ \
+            --junit-xml=test-results/unit-results.xml \
+            -v
+
+      - name: Generate release report
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python scripts/generate_release_notes.py \
+            --bdd-xml     test-results/bdd-results.xml \
+            --backend-xml test-results/unit-results.xml \
+            --features-dir test/acceptance/features/ \
+            --output-dir  release/ \
+            --owner       Silverline-Software \
+            --repo        release-documentation \
+            --release-tag "$REF_NAME" \
+            --commit      "$COMMIT_SHA" \
+            --run-url     "${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}"
+
+      - name: Upload reports artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: silverline-release-notes
+          path: release/
+          retention-days: 90
+
+  # ── Attach to GitHub Release (tags only) ────────────────────────────────────
+
+  release:
+    name: Attach Reports to Release
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download reports artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: silverline-release-notes
+          path: release/
+
+      - name: Attach reports to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/executive-report.json
+            release/executive-report.html
+            release/unit-test-summary.json
