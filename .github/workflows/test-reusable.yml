@@ -1,4 +1,4 @@
-name: Test Reusable v4 (permissions block)
+name: Test Reusable v5a (permissions only)
 
 on:
   workflow_call:
@@ -6,15 +6,6 @@ on:
       project-display-name:
         type: string
         default: ''
-      environment:
-        type: string
-        default: 'release-notes-hosting'
-      release-tag:
-        type: string
-        default: ''
-    secrets:
-      RELEASE_NOTES_GCP_SA_KEY:
-        required: false
 
 permissions:
   contents: read
@@ -24,8 +15,6 @@ jobs:
   hello:
     name: Hello World
     runs-on: ubuntu-latest
-    env:
-      CURRENT_TAG: ${{ inputs.release-tag || github.event.release.tag_name || '' }}
     steps:
       - name: Say hello
-        run: echo "env input=${{ inputs.environment }} tag=$CURRENT_TAG"
+        run: echo "permissions ok"
