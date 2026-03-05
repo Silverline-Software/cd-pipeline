@@ -87,7 +87,26 @@ jobs:
             COMMIT_SHA="$OBJ_SHA"
           fi
 
-          bash scripts/verify_ci_passed.sh "$REPO" "$COMMIT_SHA"
+          echo "Verifying CI status for commit ${COMMIT_SHA:0:8} in ${REPO}..."
+          CHECKS_JSON=$(gh api "repos/${REPO}/commits/${COMMIT_SHA}/check-runs" --paginate)
+          TOTAL=$(echo "$CHECKS_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['total_count'])")
+          EXCLUDED='{"Deploy Release Reports"}'
+          INCOMPLETE=$(echo "$CHECKS_JSON" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+excluded={'Deploy Release Reports'}
+print(len([r for r in d['check_runs'] if r['name'] not in excluded and r['status']!='completed']))
+")
+          FAILURES=$(echo "$CHECKS_JSON" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+excluded={'Deploy Release Reports'}
+print(len([r for r in d['check_runs'] if r['name'] not in excluded and r['status']=='completed' and r['conclusion'] not in ('success','skipped','neutral')]))
+")
+          [ "$TOTAL" -eq 0 ] && { echo "::error::No CI checks found for ${COMMIT_SHA:0:8}"; exit 1; }
+          [ "$INCOMPLETE" -gt 0 ] && { echo "::error::${INCOMPLETE} CI check(s) still in progress"; exit 1; }
+          [ "$FAILURES" -gt 0 ] && { echo "::error::${FAILURES} CI check(s) failed — refusing to deploy"; exit 1; }
+          echo "CI gate passed: ${TOTAL} check(s) completed successfully"
 
       - name: Fetch all releases and download reports
         env:
@@ -509,7 +528,17 @@ jobs:
           FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
         run: |
           if [ -n "$FIREBASE_SITE_ID" ]; then
-            bash scripts/ensure_firebase_site.sh "$FIREBASE_PROJECT" "$FIREBASE_SITE_ID"
+            OUTPUT=$(firebase hosting:sites:create "$FIREBASE_SITE_ID" --project "$FIREBASE_PROJECT" 2>&1)
+            EXIT_CODE=$?
+            if [ "$EXIT_CODE" -eq 0 ]; then
+              echo "Created Firebase Hosting site: $FIREBASE_SITE_ID"
+            elif echo "$OUTPUT" | grep -qi "already exist"; then
+              echo "Firebase Hosting site already exists: $FIREBASE_SITE_ID"
+            else
+              echo "Error ensuring Firebase Hosting site:" >&2
+              echo "$OUTPUT" >&2
+              exit 1
+            fi
           fi
 
       - name: Deploy to Firebase Hosting
