@@ -170,6 +170,24 @@ jobs:
             fi
           done
 
+      - name: Deploy latest API docs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Download docs-site.zip from the latest release that has it.
+          # Silently skip if no release ships docs (e.g. this repo itself).
+          DOCS_TAG=$(gh release list -R "$REPO" --limit 20             --json tagName,assets             --jq '.[] | select(.assets[]?.name == "docs-site.zip") | .tagName'             | head -1)
+
+          if [ -z "$DOCS_TAG" ]; then
+            echo "No release contains docs-site.zip — skipping docs deployment"
+          else
+            echo "Downloading docs-site.zip from $DOCS_TAG"
+            gh release download "$DOCS_TAG" -R "$REPO" -p "docs-site.zip" -D /tmp/
+            mkdir -p public/docs
+            unzip -q /tmp/docs-site.zip -d public/docs
+            echo "Docs deployed to /docs/ (source: $DOCS_TAG)"
+          fi
+
       - name: Inject version switcher into reports
         run: |
           python3 << 'PYEOF'
