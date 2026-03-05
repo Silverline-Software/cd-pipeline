@@ -42,6 +42,9 @@ jobs:
       FIREBASE_SITE_ID: ${{ vars.FIREBASE_SITE_ID || '' }}
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Verify CI passed for this release
         env:
           GH_TOKEN: ${{ github.token }}
