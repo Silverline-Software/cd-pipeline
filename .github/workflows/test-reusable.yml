@@ -1,20 +1,14 @@
-name: Test Reusable v2 (inputs + secrets)
+name: Test Reusable v3 (environment input name)
 
 on:
   workflow_call:
     inputs:
-      firebase-site-id:
-        type: string
-        default: ''
       project-display-name:
         type: string
         default: ''
-      deployment-environment:
+      environment:
         type: string
         default: 'release-notes-hosting'
-      release-tag:
-        type: string
-        default: ''
     secrets:
       RELEASE_NOTES_GCP_SA_KEY:
         required: false
@@ -25,4 +19,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Say hello
-        run: echo "inputs work! project=${{ inputs.project-display-name }}"
+        run: echo "env input=${{ inputs.environment }}"
