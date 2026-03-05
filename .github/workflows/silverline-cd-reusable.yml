@@ -38,6 +38,10 @@ on:
         description: 'Specific git tag to gate CI on (auto-detected from latest release if empty)'
         type: string
         default: ''
+      skip-ci-gate:
+        description: 'Skip the CI gate check — for testing only, never use in production'
+        type: boolean
+        default: false
     secrets:
       RELEASE_NOTES_GCP_SA_KEY:
         required: false
@@ -59,6 +63,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Verify CI passed for this release
+        if: ${{ !inputs.skip-ci-gate }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
