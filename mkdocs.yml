@@ -1,0 +1,77 @@
+site_name: Silverline CD Pipeline
+site_description: API reference for the Silverline release automation toolkit
+site_author: Silverline Software
+docs_dir: docs
+site_dir: docs-site
+
+repo_name: Silverline-Software/cd-pipeline
+repo_url: https://github.com/Silverline-Software/cd-pipeline
+edit_uri: ""
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: custom
+    accent: custom
+  font:
+    text: DM Sans
+    code: DM Mono
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/silverline.css
+
+nav:
+  - Overview: index.md
+  - API Reference:
+    - Pipeline:
+      - api/pipeline/release.md
+      - api/pipeline/gates.md
+      - api/pipeline/deploy.md
+    - Hosting:
+      - api/hosting/site.md
+      - api/hosting/firebase.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            merge_init_into_class: true
+            heading_level: 2
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Silverline-Software

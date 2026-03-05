@@ -1,0 +1,125 @@
+/* Silverline Software — MkDocs Material custom theme */
+
+:root {
+  --sl-purple:      #7c6fcd;
+  --sl-purple-dim:  #4e4490;
+  --sl-bg-deep:     #060609;
+  --sl-bg-surface:  #0e0e1a;
+  --sl-bg-raised:   #13131f;
+  --sl-border:      #1a1a30;
+  --sl-text:        #d8d8e8;
+  --sl-muted:       #505068;
+  --sl-accent:      #9d8fff;
+}
+
+/* ── Palette overrides ────────────────────────────────────────────── */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:        var(--sl-purple);
+  --md-primary-fg-color--light: var(--sl-purple-dim);
+  --md-primary-fg-color--dark:  var(--sl-purple-dim);
+  --md-accent-fg-color:         var(--sl-accent);
+  --md-default-bg-color:        var(--sl-bg-deep);
+  --md-default-fg-color:        var(--sl-text);
+  --md-default-fg-color--light: var(--sl-muted);
+  --md-code-bg-color:           var(--sl-bg-surface);
+  --md-code-fg-color:           #c8c8e0;
+}
+
+/* ── Header ───────────────────────────────────────────────────────── */
+.md-header {
+  background: rgba(6, 6, 9, 0.96);
+  border-bottom: 1px solid var(--sl-border);
+  backdrop-filter: blur(8px);
+}
+
+.md-header__title {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--sl-text) !important;
+}
+
+/* Silverline wordmark before the site title */
+.md-header__title::before {
+  content: "SILVERLINE  ";
+  color: var(--sl-purple);
+  font-size: 0.65em;
+  letter-spacing: 0.18em;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* ── Navigation tabs ─────────────────────────────────────────────── */
+.md-tabs {
+  background: var(--sl-bg-surface);
+  border-bottom: 1px solid var(--sl-border);
+}
+
+.md-tabs__link--active,
+.md-tabs__link:hover {
+  color: var(--sl-accent) !important;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────── */
+.md-nav__title {
+  color: var(--sl-muted);
+  letter-spacing: 0.1em;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.md-nav__link--active {
+  color: var(--sl-accent) !important;
+  font-weight: 500;
+}
+
+/* ── Code blocks ─────────────────────────────────────────────────── */
+.highlight pre,
+code {
+  border: 1px solid var(--sl-border);
+  border-radius: 6px;
+}
+
+/* ── API doc cards (mkdocstrings) ────────────────────────────────── */
+.doc-heading {
+  border-bottom: 1px solid var(--sl-border);
+  padding-bottom: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.doc-label {
+  background: var(--sl-bg-raised);
+  border: 1px solid var(--sl-border);
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.72rem;
+  color: var(--sl-purple);
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+.md-footer {
+  background: var(--sl-bg-surface);
+  border-top: 1px solid var(--sl-border);
+}
+
+.md-footer-meta {
+  background: var(--sl-bg-deep);
+}
+
+/* ── Search ──────────────────────────────────────────────────────── */
+.md-search__form {
+  background: var(--sl-bg-surface);
+  border: 1px solid var(--sl-border);
+  border-radius: 8px;
+}
+
+/* ── Admonitions ─────────────────────────────────────────────────── */
+.admonition.note {
+  border-color: var(--sl-purple);
+}
+
+.admonition.note > .admonition-title {
+  background: rgba(124, 111, 205, 0.12);
+}
