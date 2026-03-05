@@ -433,6 +433,14 @@ jobs:
         with:
           credentials_json: ${{ secrets.RELEASE_NOTES_GCP_SA_KEY }}
 
+      - name: Ensure Firebase Hosting site exists
+        env:
+          FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          if [ -n "$FIREBASE_SITE_ID" ]; then
+            bash scripts/ensure_firebase_site.sh "$FIREBASE_PROJECT" "$FIREBASE_SITE_ID"
+          fi
+
       - name: Deploy to Firebase Hosting
         env:
           FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}

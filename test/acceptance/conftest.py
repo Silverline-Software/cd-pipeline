@@ -286,3 +286,69 @@ def make_html_exists(ctx):
 @then("the make command exits with code 0")
 def make_exits_zero(ctx):
     assert ctx["returncode"] == 0, f"Command failed:\n{ctx.get('stderr', '')}"
+
+
+# ── Firebase Site Provisioning steps ─────────────────────────────────────────
+
+def _make_mock_firebase(tmp_path, script: str) -> Path:
+    """Write a mock firebase executable to tmp_path/bin/ and return the bin dir."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    fb = bin_dir / "firebase"
+    fb.write_text(f"#!/usr/bin/env bash\n{script}\n")
+    fb.chmod(0o755)
+    return bin_dir
+
+
+@given("the Firebase site provisioning script is available")
+def provisioning_script_available():
+    assert (ROOT / "scripts" / "ensure_firebase_site.sh").exists()
+
+
+@given("a mock firebase that successfully creates the site")
+def mock_firebase_creates(ctx, tmp_path):
+    ctx["mock_bin"] = _make_mock_firebase(
+        tmp_path, 'echo "Site created successfully"\nexit 0'
+    )
+
+
+@given("a mock firebase that reports the site already exists")
+def mock_firebase_exists(ctx, tmp_path):
+    ctx["mock_bin"] = _make_mock_firebase(
+        tmp_path, 'echo "Error: Site already exists" >&2\nexit 1'
+    )
+
+
+@given("a mock firebase that reports an authentication error")
+def mock_firebase_auth_error(ctx, tmp_path):
+    ctx["mock_bin"] = _make_mock_firebase(
+        tmp_path, 'echo "Error: Authentication failed — check credentials" >&2\nexit 1'
+    )
+
+
+@when(parsers.parse('I run the provisioning script for project "{project}" site "{site}"'))
+def run_provisioning_script(ctx, project, site):
+    env = {**os.environ, "PATH": str(ctx["mock_bin"]) + ":" + os.environ["PATH"]}
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "ensure_firebase_site.sh"), project, site],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    ctx["returncode"] = result.returncode
+    ctx["output"] = result.stdout + result.stderr
+
+
+@then("the script exits with code 0")
+def script_exits_zero(ctx):
+    assert ctx["returncode"] == 0, f"Script failed:\n{ctx['output']}"
+
+
+@then("the script exits with a non-zero code")
+def script_exits_nonzero(ctx):
+    assert ctx["returncode"] != 0, "Expected non-zero exit but script succeeded"
+
+
+@then(parsers.parse('the output contains "{text}"'))
+def output_contains(ctx, text):
+    assert text in ctx["output"], f'"{text}" not found in output:\n{ctx["output"]}'
