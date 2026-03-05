@@ -35,6 +35,22 @@
 | REQ-MAKE-02 | `make validate` exits 0 when a valid `requirements_manifest.py` is present in `scripts/` | P0 |
 | REQ-MAKE-03 | `make lint` exits 0 on the project scripts | P1 |
 
+## REQ-SITE: Firebase Site Provisioning
+
+| ID | Description | Priority |
+|----|-------------|----------|
+| REQ-SITE-01 | CD pipeline creates the Firebase Hosting site if it does not exist | P0 |
+| REQ-SITE-02 | CD pipeline is idempotent — re-running when site exists does not fail | P0 |
+| REQ-SITE-03 | CD pipeline fails loudly on unexpected Firebase errors | P0 |
+
+## REQ-CICD: CI/CD Release Pipeline
+
+| ID | Description | Priority |
+|----|-------------|----------|
+| REQ-CICD-001 | Official releases are only deployed when all CI checks have passed | P0 |
+| REQ-CICD-002 | Deployment is blocked when CI checks are still in progress | P0 |
+| REQ-CICD-003 | Deployment is blocked when no CI checks exist for the release commit | P0 |
+
 ## Traceability
 
 | Requirement | Acceptance Scenario Tag | Unit Test |
@@ -54,3 +70,9 @@
 | REQ-MAKE-01 | `@req-MAKE-01` | — (integration only) |
 | REQ-MAKE-02 | `@req-MAKE-02` | — (integration only) |
 | REQ-MAKE-03 | `@req-MAKE-03` | — (integration only) |
+| REQ-SITE-01 | `@req-SITE-01` | — (integration only) |
+| REQ-SITE-02 | `@req-SITE-02` | — (integration only) |
+| REQ-SITE-03 | `@req-SITE-03` | — (integration only) |
+| REQ-CICD-001 | `@req-CICD-001` | — (integration only) |
+| REQ-CICD-002 | `@req-CICD-002` | — (integration only) |
+| REQ-CICD-003 | `@req-CICD-003` | — (integration only) |
