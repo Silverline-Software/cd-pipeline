@@ -38,12 +38,27 @@ from release_notes_schema import (
     UNIT_TEST_SUMMARY_SCHEMA,
     validate_report,
 )
-from requirements_manifest import (
-    CATEGORIES,
-    PHASES,
-    REQUIREMENTS,
-    normalize_tag,
-)
+# requirements_manifest is project-specific — load from the caller's repo (CWD),
+# NOT from the generator script's own directory. Never falls back to the script dir.
+import importlib.util as _ilu
+_manifest_loaded = False
+for _rdir in (Path.cwd() / "scripts", Path.cwd()):
+    _mpath = _rdir / "requirements_manifest.py"
+    if _mpath.exists():
+        _spec = _ilu.spec_from_file_location("requirements_manifest", _mpath)
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        CATEGORIES = _mod.CATEGORIES
+        PHASES = _mod.PHASES
+        REQUIREMENTS = _mod.REQUIREMENTS
+        normalize_tag = _mod.normalize_tag
+        _manifest_loaded = True
+        break
+if not _manifest_loaded:
+    CATEGORIES = {}
+    PHASES = {}
+    REQUIREMENTS = {}
+    def normalize_tag(t): return t
 
 SCHEMA_VERSION = "1.0.0"
 
