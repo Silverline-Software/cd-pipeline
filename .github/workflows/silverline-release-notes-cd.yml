@@ -37,6 +37,9 @@ jobs:
       # Fallback env name for bare tags like "v1.0.0" with no env prefix
       DEFAULT_ENV: ${{ vars.DEFAULT_ENV || 'release' }}
       PROJECT_DISPLAY_NAME: ${{ vars.PROJECT_DISPLAY_NAME || 'Release Reports' }}
+      # Optional: deploy to a specific Firebase Hosting site (for custom subdomains).
+      # If unset, deploys to the project's default site.
+      FIREBASE_SITE_ID: ${{ vars.FIREBASE_SITE_ID || '' }}
 
     steps:
       - name: Fetch all releases and download reports
@@ -437,12 +440,24 @@ jobs:
           echo "Deploying to Firebase project: $FIREBASE_PROJECT"
           echo "Directory structure:"
           find public/ -name "*.html" | sort
-          firebase deploy --only hosting --project "$FIREBASE_PROJECT"
+          # Deploy to specific site if FIREBASE_SITE_ID is set, else default site
+          if [ -n "$FIREBASE_SITE_ID" ]; then
+            HOSTING_TARGET="hosting:${FIREBASE_SITE_ID}"
+          else
+            HOSTING_TARGET="hosting"
+          fi
+          firebase deploy --only "$HOSTING_TARGET" --project "$FIREBASE_PROJECT"
 
       - name: Deployment summary
         env:
           FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
         run: |
+          # Resolve the public base URL — custom domain takes priority
+          if [ -n "$FIREBASE_SITE_ID" ]; then
+            BASE_URL="https://${FIREBASE_SITE_ID}.web.app"
+          else
+            BASE_URL="https://${FIREBASE_PROJECT}.web.app"
+          fi
           LATEST_ENV=$(head -1 /tmp/versions.tsv | cut -f5)
           LATEST_VER=$(head -1 /tmp/versions.tsv | cut -f6)
           LATEST_RC=$(head -1 /tmp/versions.tsv | cut -f7)
@@ -468,10 +483,10 @@ jobs:
             echo "| Triggered by | \`$CURRENT_TAG\` |"
             echo "| Latest | \`$LATEST_PATH\` |"
             echo "| Total versions | $VERSION_COUNT |"
-            echo "| Site | https://${FIREBASE_PROJECT}.web.app |"
-            echo "| Latest report | https://${FIREBASE_PROJECT}.web.app/ |"
-            echo "| All versions | https://${FIREBASE_PROJECT}.web.app/versions |"
+            echo "| Site | ${BASE_URL} |"
+            echo "| Latest report | ${BASE_URL}/ |"
+            echo "| All versions | ${BASE_URL}/versions |"
             if [ -n "$CURRENT_PATH" ]; then
-              echo "| This version | https://${FIREBASE_PROJECT}.web.app/${CURRENT_PATH}/ |"
+              echo "| This version | ${BASE_URL}/${CURRENT_PATH}/ |"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
