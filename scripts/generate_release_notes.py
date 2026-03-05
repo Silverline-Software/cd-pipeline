@@ -23,6 +23,7 @@ Usage:
 import argparse
 import html as html_mod
 import json
+import os
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -1517,6 +1518,146 @@ function filterReqs(q) {{
 </html>"""
 
 
+# ── Security scan helpers ─────────────────────────────────────────────────────
+
+
+def parse_bandit_json(path):
+    """Parse bandit -f json output into normalized findings."""
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return []
+    findings = []
+    for r in data.get("results", []):
+        findings.append({
+            "severity": r.get("issue_severity", "LOW").upper(),
+            "title": r.get("test_name", "unknown").replace("_", " ").title(),
+            "location": f"{r.get('filename', '')}:{r.get('line_number', '')}",
+            "description": r.get("issue_text", ""),
+            "rule_id": r.get("test_id", ""),
+            "scanner": "Bandit",
+        })
+    return findings
+
+
+def parse_semgrep_json(path):
+    """Parse semgrep --json output into normalized findings."""
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return []
+    SEV_MAP = {"WARNING": "MEDIUM", "ERROR": "HIGH", "INFO": "INFO", "NOTE": "LOW"}
+    findings = []
+    for r in data.get("results", []):
+        extra = r.get("extra", {})
+        raw_sev = extra.get("severity", extra.get("metadata", {}).get("severity", "INFO")).upper()
+        sev = SEV_MAP.get(raw_sev, raw_sev)
+        check_id = r.get("check_id", "")
+        findings.append({
+            "severity": sev,
+            "title": check_id.split(".")[-1].replace("-", " ").replace("_", " ").title(),
+            "location": f"{r.get('path', '')}:{r.get('start', {}).get('line', '')}",
+            "description": extra.get("message", ""),
+            "rule_id": check_id,
+            "scanner": "Semgrep",
+        })
+    return findings
+
+
+def render_security_section(all_findings):
+    """Render the SECURITY SCAN RESULTS HTML section."""
+    if not all_findings:
+        return ""
+
+    SEV_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+    SEV_COLORS = {
+        "CRITICAL": ("#ef4444", "239,68,68"),
+        "HIGH": ("#f97316", "249,115,22"),
+        "MEDIUM": ("#eab308", "234,179,8"),
+        "LOW": ("#3b82f6", "59,130,246"),
+        "INFO": ("#6b7280", "107,114,128"),
+    }
+
+    counts = {s: 0 for s in SEV_ORDER}
+    for f in all_findings:
+        sev = f.get("severity", "INFO").upper()
+        if sev in counts:
+            counts[sev] += 1
+
+    # Summary badges
+    badges = ""
+    for sev in SEV_ORDER:
+        if counts[sev] == 0:
+            continue
+        col, rgb = SEV_COLORS.get(sev, ("#6b7280", "107,114,128"))
+        badges += (
+            f'<span style="display:inline-flex;align-items:center;gap:0.3rem;'
+            f'background:rgba({rgb},0.08);border:1px solid rgba({rgb},0.2);'
+            f'border-radius:4px;padding:0.2rem 0.55rem;font-size:0.72rem;color:{col};">'
+            f'<strong>{counts[sev]}</strong>&nbsp;{sev}</span>'
+        )
+
+    # Group by scanner
+    scanners = {}
+    for f in all_findings:
+        scanners.setdefault(f["scanner"], []).append(f)
+
+    scanner_html = ""
+    for scanner_name, findings in scanners.items():
+        sorted_findings = sorted(
+            findings,
+            key=lambda x: SEV_ORDER.index(x.get("severity", "INFO").upper())
+            if x.get("severity", "INFO").upper() in SEV_ORDER else 99
+        )
+        rows = ""
+        for f in sorted_findings:
+            sev = f.get("severity", "INFO").upper()
+            col, _ = SEV_COLORS.get(sev, ("#6b7280", "107,114,128"))
+            rows += (
+                f'<details class="scenario-item" style="margin-bottom:0.3rem;">'
+                f'<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;'
+                f'gap:0.6rem;padding:0.5rem 0.75rem;background:var(--bg-raised);'
+                f'border-radius:5px;border:1px solid var(--border-subtle);">'
+                f'<span class="scenario-arrow">&#9654;</span>'
+                f'<span style="font-size:0.65rem;font-weight:700;color:{col};letter-spacing:0.06em;">'
+                f'{html_mod.escape(sev)}</span>'
+                f'<span style="font-size:0.8rem;color:var(--text-primary);">'
+                f'{html_mod.escape(f.get("title", ""))}</span>'
+                f'<span style="margin-left:auto;font-size:0.67rem;color:var(--text-muted);'
+                f'font-family:monospace;">{html_mod.escape(f.get("location", ""))}</span>'
+                f'</summary>'
+                f'<div style="padding:0.6rem 0.75rem 0.6rem 2rem;font-size:0.78rem;'
+                f'color:var(--text-muted);line-height:1.5;">'
+                f'<div style="margin-bottom:0.25rem;">'
+                f'<code style="font-size:0.72rem;color:var(--accent-purple);">'
+                f'{html_mod.escape(f.get("rule_id", ""))}</code></div>'
+                f'{html_mod.escape(f.get("description", ""))}'
+                f'</div></details>'
+            )
+        scanner_html += (
+            f'<div style="margin-bottom:1.5rem;">'
+            f'<h4 style="font-size:0.78rem;font-weight:600;letter-spacing:0.08em;'
+            f'color:var(--text-muted);text-transform:uppercase;margin-bottom:0.6rem;">'
+            f'{html_mod.escape(scanner_name)}</h4>'
+            f'{rows}</div>'
+        )
+
+    total = len(all_findings)
+    s = "s" if total != 1 else ""
+    sc = "s" if len(scanners) != 1 else ""
+    return (
+        f'<section class="report-section">'
+        f'<h2 class="section-title">SECURITY SCAN RESULTS</h2>'
+        f'<p class="traceability-hint">{total} finding{s} across {len(scanners)} scanner{sc}. '
+        f'Click &#9654; to see details.</p>'
+        f'<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.5rem;">{badges}</div>'
+        f'{scanner_html}'
+        f'</section>'
+    )
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 
@@ -1540,6 +1681,10 @@ def main() -> int:
     parser.add_argument("--release-tag", default="dev", help="Release tag")
     parser.add_argument("--commit", default="unknown", help="Commit SHA")
     parser.add_argument("--run-url", default="", help="CI pipeline run URL")
+    parser.add_argument("--security-bandit", default=None,
+        help="Path to bandit JSON output file (bandit -f json -o ...)")
+    parser.add_argument("--security-semgrep", default=None,
+        help="Path to semgrep JSON output file (semgrep --json --output ...)")
 
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -1584,6 +1729,14 @@ def main() -> int:
     elif args.coverage_json:
         print(f"  Coverage JSON not found: {args.coverage_json} (skipping)")
 
+    # Collect security findings
+    security_findings = []
+    if args.security_bandit and os.path.exists(args.security_bandit):
+        security_findings += parse_bandit_json(args.security_bandit)
+    if args.security_semgrep and os.path.exists(args.security_semgrep):
+        security_findings += parse_semgrep_json(args.security_semgrep)
+    security_html = render_security_section(security_findings)
+
     # Build reports
     builder = ReportBuilder(
         owner=args.owner,
@@ -1601,6 +1754,8 @@ def main() -> int:
     # Executive HTML report
     print("  Generating executive-report.html...")
     html_out = builder.build_executive_html(executive, features)
+    if security_html:
+        html_out = html_out.replace("</main>", security_html + "\n    </main>", 1)
     (args.output_dir / "executive-report.html").write_text(html_out)
 
     # Unit test summary (only if backend results exist)
