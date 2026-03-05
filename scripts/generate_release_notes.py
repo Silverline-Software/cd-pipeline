@@ -94,12 +94,12 @@ body {
     font-weight: 700;
     font-size: 1.05rem;
     letter-spacing: 0.4em;
-    background: linear-gradient(90deg, #444 0%, #888 20%, #ccc 40%, #fff 50%, #ccc 60%, #888 80%, #444 100%);
+    background: linear-gradient(90deg, #555 0%, #666 30%, #909090 45%, #aaa 50%, #909090 55%, #666 70%, #555 100%);
     background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    animation: shimmer 5s ease-in-out infinite;
+    animation: shimmer 8s ease-in-out infinite;
     margin-bottom: 0.75rem;
 }
 .silver-line {
