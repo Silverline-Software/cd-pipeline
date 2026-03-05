@@ -1,4 +1,4 @@
-site_name: Silverline CD Pipeline
+site_name: CD Pipeline
 site_description: API reference for the Silverline release automation toolkit
 site_author: Silverline Software
 docs_dir: docs

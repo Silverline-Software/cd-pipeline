@@ -41,8 +41,8 @@
 
 /* Silverline wordmark before the site title */
 .md-header__title::before {
-  content: "SILVERLINE  ";
-  color: var(--sl-purple);
+  content: "SILVERLINE SOFTWARE  ";
+  color: #a8a8c0;
   font-size: 0.65em;
   letter-spacing: 0.18em;
   font-weight: 700;
