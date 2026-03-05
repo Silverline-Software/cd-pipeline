@@ -1410,7 +1410,7 @@ class ReportBuilder:
             <span class="meta-chip"><strong>Release</strong> {esc(r['release_tag'])}</span>
             <span class="meta-chip"><strong>Commit</strong> {esc(r['commit_sha'][:8])}</span>
             <span class="meta-chip"><strong>Generated</strong> {esc(generated[:19].replace('T',' '))}</span>
-            {f'<a class="meta-chip" href="{esc(self.run_url)}" target="_blank" style="text-decoration:none"><strong>Pipeline</strong> View Run \u2197</a>' if self.run_url else ''}
+            {f'<a class="meta-chip" href="{esc(self.run_url)}" target="_blank" style="text-decoration:none"><strong>Pipeline</strong> View Run ↗</a>' if self.run_url else ''}
         </div>
         <div class="overall-status">
             <span class="status-badge status-badge--{status_color}">{status_upper}</span>

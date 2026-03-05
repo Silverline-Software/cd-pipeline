@@ -246,6 +246,9 @@ jobs:
                   <a href="/" style="color:#8888a0;text-decoration:none;font-size:0.68rem;">
                       Latest
                   </a>
+                  <a href="/docs/" style="color:#8888a0;text-decoration:none;font-size:0.68rem;">
+                      Docs
+                  </a>
               </div>
           </div>
           <div style="height:2rem;"></div>'''
