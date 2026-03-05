@@ -1,4 +1,4 @@
-name: Test Reusable v5c (no permissions at all)
+name: Test Reusable - Permissions Test
 
 on:
   workflow_call:
@@ -7,10 +7,14 @@ on:
         type: string
         default: ''
 
+permissions:
+  contents: read
+  checks: read
+
 jobs:
   hello:
     name: Hello World
     runs-on: ubuntu-latest
     steps:
       - name: Say hello
-        run: echo "no permissions"
+        run: echo "workflow-level permissions test"
