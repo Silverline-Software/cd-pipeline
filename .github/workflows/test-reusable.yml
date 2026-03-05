@@ -1,4 +1,4 @@
-name: Test Reusable - Permissions Test
+name: Test Reusable - Job-Level Permissions
 
 on:
   workflow_call:
@@ -7,14 +7,13 @@ on:
         type: string
         default: ''
 
-permissions:
-  contents: read
-  checks: read
-
 jobs:
   hello:
     name: Hello World
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
     steps:
       - name: Say hello
-        run: echo "workflow-level permissions test"
+        run: echo "job-level permissions test"
