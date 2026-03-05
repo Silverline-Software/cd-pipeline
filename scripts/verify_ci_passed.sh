@@ -30,7 +30,10 @@ print(d['total_count'])
 INCOMPLETE=$(echo "$CHECKS_JSON" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
-print(len([r for r in d['check_runs'] if r['status'] != 'completed']))
+# Exclude CD workflow job to avoid self-blocking when it's currently running
+excluded = {'Deploy Release Reports'}
+print(len([r for r in d['check_runs']
+           if r['name'] not in excluded and r['status'] != 'completed']))
 ")
 
 FAILURES=$(echo "$CHECKS_JSON" | python3 -c "
