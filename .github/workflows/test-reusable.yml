@@ -1,4 +1,4 @@
-name: Test Reusable v3 (environment input name)
+name: Test Reusable v4 (permissions block)
 
 on:
   workflow_call:
@@ -9,14 +9,23 @@ on:
       environment:
         type: string
         default: 'release-notes-hosting'
+      release-tag:
+        type: string
+        default: ''
     secrets:
       RELEASE_NOTES_GCP_SA_KEY:
         required: false
+
+permissions:
+  contents: read
+  checks: read
 
 jobs:
   hello:
     name: Hello World
     runs-on: ubuntu-latest
+    env:
+      CURRENT_TAG: ${{ inputs.release-tag || github.event.release.tag_name || '' }}
     steps:
       - name: Say hello
-        run: echo "env input=${{ inputs.environment }}"
+        run: echo "env input=${{ inputs.environment }} tag=$CURRENT_TAG"
