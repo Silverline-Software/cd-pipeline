@@ -1,4 +1,4 @@
-name: Test Reusable v5b (no top-level permissions)
+name: Test Reusable v5c (no permissions at all)
 
 on:
   workflow_call:
@@ -11,9 +11,6 @@ jobs:
   hello:
     name: Hello World
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: read
     steps:
       - name: Say hello
-        run: echo "job-level permissions ok"
+        run: echo "no permissions"
