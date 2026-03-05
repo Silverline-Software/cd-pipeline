@@ -42,10 +42,6 @@ on:
       RELEASE_NOTES_GCP_SA_KEY:
         required: false
 
-permissions:
-  contents: read
-  checks: read
-
 jobs:
   deploy:
     name: Deploy Release Reports
