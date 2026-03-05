@@ -432,6 +432,11 @@ body {
 }
 .scenario-item > summary::-webkit-details-marker { display: none; }
 .scenario-item > summary:hover { background: rgba(255,255,255,0.015); }
+.scenario-arrow {
+    font-size: 0.55rem; color: var(--text-muted); flex-shrink: 0;
+    transition: transform 0.15s; display: inline-block;
+}
+.scenario-item[open] > summary .scenario-arrow { transform: rotate(90deg); }
 .scenario-dot {
     display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
 }
@@ -462,6 +467,10 @@ body {
 .no-scenarios {
     font-size: 0.72rem; color: var(--text-muted); font-style: italic;
     padding: 0.25rem 0 0.35rem 2.1rem;
+}
+.traceability-hint {
+    font-size: 0.7rem; color: var(--text-muted); margin: 0.5rem 0 1rem;
+    padding-left: 0.2rem;
 }
 
 /* ── Help Modal ── */
@@ -1231,6 +1240,7 @@ class ReportBuilder:
                             scenarios_html += (
                                 f'<details class="scenario-item">'
                                 f'<summary>'
+                                f'<span class="scenario-arrow">&#9654;</span>'
                                 f'<span class="scenario-dot '
                                 f'scenario-dot--{dot_cls}"></span>'
                                 f'<span class="scenario-title{name_cls}">'
@@ -1445,6 +1455,7 @@ class ReportBuilder:
                 <input type="text" class="filter-input" placeholder="Filter requirements\u2026" oninput="filterReqs(this.value)">
                 <button class="help-btn" onclick="document.getElementById('helpOverlay').classList.add('active')">What is this?</button>
             </div>
+            <p class="traceability-hint">Click the &#9654; arrow next to each scenario to view the detailed test implementation for that requirement.</p>
             {req_html}
             {no_reqs}
         </section>
