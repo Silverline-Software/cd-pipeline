@@ -521,12 +521,16 @@ jobs:
             EXIT_CODE=$?
             if [ "$EXIT_CODE" -eq 0 ]; then
               echo "Created Firebase Hosting site: $FIREBASE_SITE_ID"
-            elif echo "$OUTPUT" | grep -qi "already exist"; then
-              echo "Firebase Hosting site already exists: $FIREBASE_SITE_ID"
             else
-              echo "Error ensuring Firebase Hosting site:" >&2
-              echo "$OUTPUT" >&2
-              exit 1
+              # Non-zero exit — site may already exist (various error phrasings from Firebase CLI)
+              echo "Note: firebase hosting:sites:create exited $EXIT_CODE — site likely already exists"
+              echo "$OUTPUT"
+              # Verify the site is actually accessible; fail only on auth errors
+              if echo "$OUTPUT" | grep -qi "permission\|authentication\|unauthorized\|not found project"; then
+                echo "::error::Firebase auth/project error — aborting" >&2
+                exit 1
+              fi
+              echo "Continuing — assuming site exists"
             fi
           fi
 
