@@ -120,7 +120,7 @@ jobs:
             mkdir -p "$dest"
             if gh release download "$tag" -R "$REPO" -p "executive-report.html" -D "$dest/" 2>/dev/null; then
               cp "$dest/executive-report.html" "$dest/index.html"
-              echo "${tag}\t${prerelease}\t${published}\t${name}\t${env_name}\t${version}\t${is_rc}" >> /tmp/versions.tsv
+              printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n" "${tag}" "${prerelease}" "${published}" "${name}" "${env_name}" "${version}" "${is_rc}" >> /tmp/versions.tsv
               echo "  Downloaded: ${env_name}/${version}$([ "$is_rc" = "true" ] && echo "/rc")"
 
               # Also grab JSON reports
