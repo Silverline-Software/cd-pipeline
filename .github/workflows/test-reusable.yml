@@ -1,7 +1,23 @@
-name: Test Reusable (hello world)
+name: Test Reusable v2 (inputs + secrets)
 
 on:
   workflow_call:
+    inputs:
+      firebase-site-id:
+        type: string
+        default: ''
+      project-display-name:
+        type: string
+        default: ''
+      deployment-environment:
+        type: string
+        default: 'release-notes-hosting'
+      release-tag:
+        type: string
+        default: ''
+    secrets:
+      RELEASE_NOTES_GCP_SA_KEY:
+        required: false
 
 jobs:
   hello:
@@ -9,4 +25,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Say hello
-        run: echo "Hello from cd-pipeline reusable workflow!"
+        run: echo "inputs work! project=${{ inputs.project-display-name }}"
