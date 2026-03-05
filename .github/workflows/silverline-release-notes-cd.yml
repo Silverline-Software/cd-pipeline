@@ -475,11 +475,10 @@ jobs:
           find public/ -name "*.html" | sort
           # Deploy to specific site if FIREBASE_SITE_ID is set, else default site
           if [ -n "$FIREBASE_SITE_ID" ]; then
-            HOSTING_TARGET="hosting:${FIREBASE_SITE_ID}"
+            firebase deploy --only hosting --project "$FIREBASE_PROJECT" --site "$FIREBASE_SITE_ID"
           else
-            HOSTING_TARGET="hosting"
+            firebase deploy --only hosting --project "$FIREBASE_PROJECT"
           fi
-          firebase deploy --only "$HOSTING_TARGET" --project "$FIREBASE_PROJECT"
 
       - name: Deployment summary
         env:
