@@ -50,27 +50,24 @@ from silverline.reporting.schema import (
     UNIT_TEST_SUMMARY_SCHEMA,
     validate_report,
 )
-# requirements_manifest is project-specific — load from the caller's repo (CWD),
-# NOT from the generator script's own directory. Never falls back to the script dir.
-import importlib.util as _ilu
-_manifest_loaded = False
-for _rdir in (Path.cwd() / "scripts", Path.cwd()):
-    _mpath = _rdir / "requirements_manifest.py"
-    if _mpath.exists():
-        _spec = _ilu.spec_from_file_location("requirements_manifest", _mpath)
-        _mod = _ilu.module_from_spec(_spec)
-        _spec.loader.exec_module(_mod)
-        CATEGORIES = _mod.CATEGORIES
-        PHASES = _mod.PHASES
-        REQUIREMENTS = _mod.REQUIREMENTS
-        normalize_tag = _mod.normalize_tag
-        _manifest_loaded = True
-        break
-if not _manifest_loaded:
-    CATEGORIES = {}
-    PHASES = {}
-    REQUIREMENTS = {}
-    def normalize_tag(t): return t
+from silverline.reporting.manifest import load_manifest_module, normalize_requirements
+from silverline.reporting.phases import Phase
+
+_manifest_mod = load_manifest_module()
+if _manifest_mod is not None:
+    CATEGORIES = getattr(_manifest_mod, "CATEGORIES", {})
+    PHASES = getattr(_manifest_mod, "PHASES", {})
+    REQUIREMENTS = getattr(_manifest_mod, "REQUIREMENTS", {})
+    normalize_tag = getattr(_manifest_mod, "normalize_tag", lambda t: t)
+else:
+    CATEGORIES, PHASES, REQUIREMENTS = {}, {}, {}
+
+    def normalize_tag(t):  # noqa: E731
+        return t
+
+# Normalized Requirement objects keyed by id (phase resolved per-requirement).
+# Consumed by the HTML builder in a later task.
+NORM_REQUIREMENTS = normalize_requirements(_manifest_mod) if _manifest_mod else {}
 
 SCHEMA_VERSION = "1.0.0"
 
