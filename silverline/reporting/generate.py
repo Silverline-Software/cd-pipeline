@@ -952,6 +952,8 @@ class ReportBuilder:
                     "status": req_status,
                     "scenario_count": len(scenarios),
                     "scenarios": scenarios,
+                    "phase": NORM_REQUIREMENTS[req_id].phase.label
+                    if req_id in NORM_REQUIREMENTS else Phase.MVP.label,
                 }
             )
 
@@ -1193,19 +1195,27 @@ class ReportBuilder:
         total_reqs = 0
         total_tested = 0
 
-        for phase_num in sorted(PHASES.keys()):
-            phase = PHASES[phase_num]
-            phase_cats = sorted(
-                [(k, v) for k, v in CATEGORIES.items()
-                 if v["phase"] == phase_num],
-                key=lambda x: x[1]["order"],
+        for phase in sorted(Phase):
+            phase_reqs = {
+                rid: r for rid, r in NORM_REQUIREMENTS.items()
+                if r.phase is phase
+            }
+            if not phase_reqs:
+                continue
+
+            cats_in_phase = sorted(
+                {r.category for r in phase_reqs.values()},
+                key=lambda c: CATEGORIES.get(c, {}).get("order", 999),
             )
 
             phase_content = ""
-            for cat_key, cat in phase_cats:
+            for cat_key in cats_in_phase:
+                cat = CATEGORIES.get(
+                    cat_key, {"name": cat_key, "description": ""}
+                )
                 cat_reqs = sorted(
-                    [(k, v) for k, v in REQUIREMENTS.items()
-                     if k.startswith(cat_key + "-")],
+                    [(rid, r) for rid, r in phase_reqs.items()
+                     if r.category == cat_key],
                     key=lambda x: x[0],
                 )
                 if not cat_reqs:
@@ -1216,7 +1226,10 @@ class ReportBuilder:
                 total_reqs += cat_total
                 req_items_html = ""
 
-                for req_id, (desc, priority, impl_status) in cat_reqs:
+                for req_id, req in cat_reqs:
+                    desc, priority, impl_status = (
+                        req.description, req.priority, req.status,
+                    )
                     scenarios = req_scenarios.get(req_id, [])
 
                     if scenarios:
@@ -1340,16 +1353,18 @@ class ReportBuilder:
                     f'</details>\n'
                 )
 
-            if phase_content:
-                req_html += (
-                    f'<div class="phase-block">'
-                    f'<h3 class="phase-heading">'
-                    f'{esc(phase["name"])}</h3>'
-                    f'<p class="phase-desc">'
-                    f'{esc(phase["description"])}</p>'
-                    f'{phase_content}'
-                    f'</div>\n'
-                )
+            phase_desc = ""
+            if isinstance(PHASES, dict):
+                pmeta = PHASES.get(phase.value) or PHASES.get(phase)
+                if isinstance(pmeta, dict):
+                    phase_desc = pmeta.get("description", "")
+            req_html += (
+                f'<div class="phase-block">'
+                f'<h3 class="phase-heading">{esc(phase.label)}</h3>'
+                + (f'<p class="phase-desc">{esc(phase_desc)}</p>' if phase_desc else "")
+                + f'{phase_content}'
+                f'</div>\n'
+            )
 
         # ── Detailed results (by test suite / classname) ──
         details_html = ""
@@ -1415,7 +1430,7 @@ class ReportBuilder:
         )
         no_reqs = (
             '<p class="empty-note">No requirement data available</p>'
-            if not REQUIREMENTS
+            if not NORM_REQUIREMENTS
             else ""
         )
         no_details = (

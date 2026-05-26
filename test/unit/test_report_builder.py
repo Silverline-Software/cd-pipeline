@@ -111,3 +111,25 @@ def test_cli_json_contains_release_tag(tmp_path):
     )
     report = json.loads((tmp_path / "executive-report.json").read_text())
     assert report["repository"]["release_tag"] == tag
+
+
+def test_html_groups_requirements_by_phase(monkeypatch):
+    """REQ-PHASE-04: HTML renders phase sections ascending (MVP before Phase 2),
+    grouping each requirement by its own phase."""
+    import silverline.reporting.generate as g
+    from silverline.reporting.manifest import Requirement
+    from silverline.reporting.phases import Phase
+
+    monkeypatch.setattr(g, "CATEGORIES", {
+        "AUTH": {"name": "Auth", "description": "d", "phase": 0, "order": 1},
+    })
+    monkeypatch.setattr(g, "NORM_REQUIREMENTS", {
+        "AUTH-01": Requirement("AUTH-01", "MVP req", "P0", "Implemented", Phase.MVP, "AUTH"),
+        "AUTH-09": Requirement("AUTH-09", "Later req", "P1", "Planned", Phase.PHASE_2, "AUTH"),
+    })
+    builder = make_builder()
+    report = builder.build_executive_report(None, None, None)
+    html = builder.build_executive_html(report, None)
+    assert "MVP" in html and "Phase 2" in html
+    assert html.index("MVP") < html.index("Phase 2")
+    assert "AUTH-01" in html and "AUTH-09" in html
