@@ -11,6 +11,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 
+# Repo root on path so `import silverline` resolves under a bare `pytest`
+# invocation (CI), not just `python -m pytest` (which adds CWD automatically).
+# The examples/ manifest imports silverline.reporting at collection time.
+sys.path.insert(0, str(ROOT))
+
 # examples/ must be first so requirements_manifest resolves from there
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "examples"))
