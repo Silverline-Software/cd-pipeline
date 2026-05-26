@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "silverline-cd-pipeline"
+version = "1.0.0"
+description = "Silverline release-report generator and CD pipeline toolkit."
+requires-python = ">=3.11"
+authors = [{ name = "Stephen Boyett" }]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-bdd"]
+
+[project.scripts]
+silverline-release-notes = "silverline.reporting.generate:main"
+
+[tool.setuptools.packages.find]
+include = ["silverline*"]
