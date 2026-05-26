@@ -6,6 +6,8 @@ for this repo. Projects that consume this tool copy examples/requirements_manife
 to their own scripts/ and customise it for their domain.
 """
 
+from silverline.reporting.phases import Phase
+
 # ── Phases ────────────────────────────────────────────────────────────────────
 
 PHASES = {
@@ -60,39 +62,39 @@ CATEGORIES = {
 # ── Requirements ──────────────────────────────────────────────────────────────
 # Keys are the normalised IDs that match @req-TYPE-NN tags after stripping "req-".
 
-REQUIREMENTS: dict[str, tuple[str, str, str]] = {
+REQUIREMENTS: dict[str, tuple] = {
     # ── GEN ──────────────────────────────────────────────────────────────────
-    "GEN-01": ("Generator produces executive-report.json with no test inputs", "P0", "Implemented"),
-    "GEN-02": ("Generator produces executive-report.html with no test inputs", "P0", "Implemented"),
-    "GEN-03": ("Generated JSON report contains the supplied release tag", "P0", "Implemented"),
-    "GEN-04": ("Generated JSON report conforms to the executive report schema", "P0", "Implemented"),
+    "GEN-01": ("Generator produces executive-report.json with no test inputs", "P0", "Implemented", Phase.MVP),
+    "GEN-02": ("Generator produces executive-report.html with no test inputs", "P0", "Implemented", Phase.MVP),
+    "GEN-03": ("Generated JSON report contains the supplied release tag", "P0", "Implemented", Phase.MVP),
+    "GEN-04": ("Generated JSON report conforms to the executive report schema", "P0", "Implemented", Phase.MVP),
 
     # ── SCHEMA ────────────────────────────────────────────────────────────────
-    "SCHEMA-01": ("validate_report returns no errors for a structurally valid report", "P0", "Implemented"),
-    "SCHEMA-02": ("validate_report reports errors for a report missing required keys", "P0", "Implemented"),
-    "SCHEMA-03": ("validate_report accepts integer values where float is expected", "P1", "Implemented"),
+    "SCHEMA-01": ("validate_report returns no errors for a structurally valid report", "P0", "Implemented", Phase.MVP),
+    "SCHEMA-02": ("validate_report reports errors for a report missing required keys", "P0", "Implemented", Phase.MVP),
+    "SCHEMA-03": ("validate_report accepts integer values where float is expected", "P1", "Implemented", Phase.MVP),
 
     # ── PARSE ─────────────────────────────────────────────────────────────────
-    "PARSE-01": ("GherkinParser extracts scenario names from .feature files", "P0", "Implemented"),
-    "PARSE-02": ("GherkinParser associates @req-* and @FR-* tags with scenarios", "P0", "Implemented"),
-    "PARSE-03": ("GherkinParser extracts Given/When/Then steps for each scenario", "P1", "Implemented"),
-    "PARSE-04": ("JUnitParser extracts pass/fail totals from JUnit XML", "P0", "Implemented"),
-    "PARSE-05": ("JUnitParser maps scenario names to pytest test function names", "P1", "Implemented"),
+    "PARSE-01": ("GherkinParser extracts scenario names from .feature files", "P0", "Implemented", Phase.MVP),
+    "PARSE-02": ("GherkinParser associates @req-* and @FR-* tags with scenarios", "P0", "Implemented", Phase.MVP),
+    "PARSE-03": ("GherkinParser extracts Given/When/Then steps for each scenario", "P1", "Implemented", Phase.MVP),
+    "PARSE-04": ("JUnitParser extracts pass/fail totals from JUnit XML", "P0", "Implemented", Phase.MVP),
+    "PARSE-05": ("JUnitParser maps scenario names to pytest test function names", "P1", "Implemented", Phase.MVP),
 
     # ── MAKE ──────────────────────────────────────────────────────────────────
-    "MAKE-01": ("make generate-example produces report output files", "P0", "Implemented"),
-    "MAKE-02": ("make validate exits 0 when requirements_manifest.py is present", "P0", "Implemented"),
-    "MAKE-03": ("make lint exits 0 on project scripts", "P1", "Implemented"),
+    "MAKE-01": ("make generate-example produces report output files", "P0", "Implemented", Phase.MVP),
+    "MAKE-02": ("make validate exits 0 when requirements_manifest.py is present", "P0", "Implemented", Phase.MVP),
+    "MAKE-03": ("make lint exits 0 on project scripts", "P1", "Implemented", Phase.MVP),
 
     # ── SITE ──────────────────────────────────────────────────────────────────
-    "SITE-01": ("CD pipeline creates the Firebase Hosting site if it does not exist", "P0", "Implemented"),
-    "SITE-02": ("CD pipeline is idempotent — re-running when site exists does not fail", "P0", "Implemented"),
-    "SITE-03": ("CD pipeline fails loudly on unexpected Firebase errors", "P0", "Implemented"),
+    "SITE-01": ("CD pipeline creates the Firebase Hosting site if it does not exist", "P0", "Implemented", Phase.MVP),
+    "SITE-02": ("CD pipeline is idempotent — re-running when site exists does not fail", "P0", "Implemented", Phase.MVP),
+    "SITE-03": ("CD pipeline fails loudly on unexpected Firebase errors", "P0", "Implemented", Phase.MVP),
 
     # ── CICD ──────────────────────────────────────────────────────────────────
-    "CICD-001": ("Official releases are only deployed when all CI checks have passed", "P0", "Implemented"),
-    "CICD-002": ("Deployment is blocked when CI checks are still in progress", "P0", "Implemented"),
-    "CICD-003": ("Deployment is blocked when no CI checks exist for the release commit", "P0", "Implemented"),
+    "CICD-001": ("Official releases are only deployed when all CI checks have passed", "P0", "Implemented", Phase.MVP),
+    "CICD-002": ("Deployment is blocked when CI checks are still in progress", "P0", "Implemented", Phase.MVP),
+    "CICD-003": ("Deployment is blocked when no CI checks exist for the release commit", "P0", "Implemented", Phase.MVP),
 }
 
 

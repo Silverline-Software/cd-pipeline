@@ -54,7 +54,10 @@ generate: ## Generate release notes from test results (use OUTPUT_DIR, BDD_XML, 
 .PHONY: generate-example
 generate-example: ## Generate a sample report using the example requirements manifest
 	@mkdir -p $(OUTPUT_DIR)
-	PYTHONPATH=.:examples $(PYTHON) scripts/generate_release_notes.py \
+	PYTHONPATH=. $(PYTHON) -c \
+		"import sys; sys.path.insert(0,'examples'); import requirements_manifest; \
+sys.argv=['generate_release_notes'] + sys.argv[1:]; \
+from silverline.reporting.generate import main; sys.exit(main())" \
 		--output-dir $(OUTPUT_DIR) \
 		--owner $(OWNER) \
 		--repo $(REPO) \

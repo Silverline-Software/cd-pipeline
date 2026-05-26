@@ -8,6 +8,8 @@ The report generator reads PHASES, CATEGORIES, REQUIREMENTS, and
 normalize_tag() from this module.
 """
 
+from silverline.reporting.phases import Phase
+
 # ── Phases ────────────────────────────────────────────────────────────────────
 # Group requirements into delivery phases. At minimum, define one phase.
 
@@ -52,24 +54,25 @@ CATEGORIES = {
 
 # ── Individual Requirements ───────────────────────────────────────────────────
 # Key:   Normalized ID with category prefix (e.g. "AUTH-01")
-# Value: (description, priority, status)
+# Value: (description, priority, status, phase)
 #   priority: P0 = Must Have, P1 = Should Have, P2 = Nice to Have
 #   status:   Implemented | Planned | Backlog
+#   phase:    Phase enum member (e.g. Phase.MVP, Phase.PHASE_1, Phase.PHASE_2)
 
-REQUIREMENTS: dict[str, tuple[str, str, str]] = {
+REQUIREMENTS: dict[str, tuple] = {
     # ── AUTH ──────────────────────────────────────────────────────────────
-    "AUTH-01": ("User can register with email and password", "P0", "Implemented"),
-    "AUTH-02": ("User can log in with valid credentials", "P0", "Implemented"),
-    "AUTH-03": ("User can log out", "P0", "Implemented"),
-    "AUTH-04": ("Password reset via email link", "P0", "Planned"),
+    "AUTH-01": ("User can register with email and password", "P0", "Implemented", Phase.MVP),
+    "AUTH-02": ("User can log in with valid credentials", "P0", "Implemented", Phase.MVP),
+    "AUTH-03": ("User can log out", "P0", "Implemented", Phase.MVP),
+    "AUTH-04": ("Password reset via email link", "P0", "Planned", Phase.PHASE_1),
 
     # ── DASH ─────────────────────────────────────────────────────────────
-    "DASH-01": ("View account information", "P0", "Implemented"),
-    "DASH-02": ("Edit profile settings", "P1", "Planned"),
+    "DASH-01": ("View account information", "P0", "Implemented", Phase.MVP),
+    "DASH-02": ("Edit profile settings", "P1", "Planned", Phase.PHASE_2),
 
     # ── ADMIN ────────────────────────────────────────────────────────────
-    "ADMIN-01": ("Admin can view all users", "P0", "Implemented"),
-    "ADMIN-02": ("Admin can disable accounts", "P0", "Planned"),
+    "ADMIN-01": ("Admin can view all users", "P0", "Implemented", Phase.MVP),
+    "ADMIN-02": ("Admin can disable accounts", "P0", "Planned", Phase.PHASE_2),
 }
 
 
