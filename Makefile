@@ -54,7 +54,7 @@ generate: ## Generate release notes from test results (use OUTPUT_DIR, BDD_XML, 
 .PHONY: generate-example
 generate-example: ## Generate a sample report using the example requirements manifest
 	@mkdir -p $(OUTPUT_DIR)
-	PYTHONPATH=examples $(PYTHON) scripts/generate_release_notes.py \
+	PYTHONPATH=.:examples $(PYTHON) scripts/generate_release_notes.py \
 		--output-dir $(OUTPUT_DIR) \
 		--owner $(OWNER) \
 		--repo $(REPO) \

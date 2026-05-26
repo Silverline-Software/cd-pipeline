@@ -66,7 +66,7 @@ def test_cli_produces_json_file(tmp_path):
         ],
         capture_output=True,
         text=True,
-        env={**__import__("os").environ, "PYTHONPATH": str(ROOT / "examples")},
+        env={**__import__("os").environ, "PYTHONPATH": f"{ROOT}{__import__('os').pathsep}{ROOT / 'examples'}"},
     )
     assert result.returncode == 0, result.stderr
     assert (tmp_path / "executive-report.json").exists()
@@ -86,7 +86,7 @@ def test_cli_produces_html_file(tmp_path):
         ],
         capture_output=True,
         text=True,
-        env={**__import__("os").environ, "PYTHONPATH": str(ROOT / "examples")},
+        env={**__import__("os").environ, "PYTHONPATH": f"{ROOT}{__import__('os').pathsep}{ROOT / 'examples'}"},
     )
     assert result.returncode == 0, result.stderr
     assert (tmp_path / "executive-report.html").exists()
@@ -107,7 +107,7 @@ def test_cli_json_contains_release_tag(tmp_path):
         ],
         check=True,
         capture_output=True,
-        env={**__import__("os").environ, "PYTHONPATH": str(ROOT / "examples")},
+        env={**__import__("os").environ, "PYTHONPATH": f"{ROOT}{__import__('os').pathsep}{ROOT / 'examples'}"},
     )
     report = json.loads((tmp_path / "executive-report.json").read_text())
     assert report["repository"]["release_tag"] == tag

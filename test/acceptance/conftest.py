@@ -67,7 +67,7 @@ def run_generator(ctx, tmp_path):
         ],
         capture_output=True,
         text=True,
-        env={**os.environ, "PYTHONPATH": str(ROOT / "examples")},
+        env={**os.environ, "PYTHONPATH": f"{ROOT}{os.pathsep}{ROOT / 'examples'}"},
     )
     ctx["returncode"] = result.returncode
     ctx["output_dir"] = tmp_path / "release"
@@ -88,7 +88,7 @@ def run_generator_with_tag(ctx, tmp_path, tag):
         ],
         capture_output=True,
         text=True,
-        env={**os.environ, "PYTHONPATH": str(ROOT / "examples")},
+        env={**os.environ, "PYTHONPATH": f"{ROOT}{os.pathsep}{ROOT / 'examples'}"},
     )
     ctx["returncode"] = result.returncode
     ctx["output_dir"] = tmp_path / "release"
