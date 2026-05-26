@@ -108,24 +108,28 @@ clean: ## Remove generated report files
 
 .PHONY: claude
 claude: ## Open Claude Code (interactive, skip permissions)
+	claude-code $(CLAUDE_FLAGS)
+
+.PHONY: claude-code
+claude-code: ## Run claude with skip-permissions flag
 	claude $(CLAUDE_FLAGS)
 
 .PHONY: claude-opus
 claude-opus: ## Open Claude Code with Opus model
-	claude --model opus $(CLAUDE_FLAGS)
+	claude-code --model opus $(CLAUDE_FLAGS)
 
 .PHONY: claude-sonnet
 claude-sonnet: ## Open Claude Code with Sonnet model
-	claude --model sonnet $(CLAUDE_FLAGS)
+	claude-code --model sonnet $(CLAUDE_FLAGS)
 
 .PHONY: claude-resume
 claude-resume: ## Resume the last Claude Code session
-	claude -r $(CLAUDE_FLAGS)
+	claude-code -r $(CLAUDE_FLAGS)
 
 .PHONY: claude-continue
 claude-continue: ## Continue the last Claude Code conversation
-	claude -c $(CLAUDE_FLAGS)
+	claude-code -c $(CLAUDE_FLAGS)
 
 .PHONY: claude-plan
 claude-plan: ## Open Claude Code in plan mode (review before executing)
-	claude --plan $(CLAUDE_FLAGS)
+	claude-code --plan $(CLAUDE_FLAGS)
