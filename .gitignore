@@ -4,3 +4,8 @@ __pycache__/
 .pytest_cache/
 release/
 .DS_Store
+
+# Python packaging
+*.egg-info/
+build/
+dist/
