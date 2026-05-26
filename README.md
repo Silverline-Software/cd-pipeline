@@ -51,6 +51,27 @@ Bare tags (no prefix) fall back to the `DEFAULT_ENV` variable (defaults to `rele
 
 ## Quick Start — Add to an Existing Project
 
+### Install as a package (recommended)
+
+Instead of copying the generator scripts, install the toolkit and pin a version:
+
+```bash
+pip install "git+https://github.com/Silverline-Software/cd-pipeline@v1.0.0"
+```
+
+Then run the generator via its console entrypoint (same flags as the script):
+
+```bash
+silverline-release-notes \
+  --bdd-xml test-results/results.xml \
+  --features-dir test/acceptance/features/ \
+  --output-dir release/ \
+  --owner <org> --repo <repo> --release-tag "$REF_NAME" --commit "$SHA"
+```
+
+Your project still owns its `scripts/requirements_manifest.py`. The copy-based
+setup below remains supported for projects that prefer vendoring the scripts.
+
 ### Step 1: Copy the scripts
 
 ```bash
@@ -66,7 +87,7 @@ cp <this-repo>/examples/requirements_manifest.py scripts/requirements_manifest.p
 Edit `scripts/requirements_manifest.py`:
 - Define your **PHASES** (delivery milestones)
 - Define your **CATEGORIES** (functional areas matching your tag prefixes)
-- Add your **REQUIREMENTS** with description, priority, and status
+- Add your **REQUIREMENTS** with description, priority, and status. Each entry is a 3-tuple `(description, priority, status)` or an optional 4-tuple `(description, priority, status, phase)` where `phase` is a `silverline.reporting.phases.Phase` value (`Phase.MVP`, `Phase.PHASE_1` … `Phase.PHASE_10`). The 3-tuple form is still accepted and inherits the phase from the requirement's category.
 - Update `normalize_tag()` if your project uses a different tag prefix
 
 ### Step 3: Tag your Gherkin scenarios
