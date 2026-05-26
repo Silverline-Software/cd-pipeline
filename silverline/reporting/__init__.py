@@ -14,3 +14,4 @@ Copyright © 2026 Silverline Software LLC. All Rights Reserved.
 ---
 """
 from silverline.reporting.phases import Phase  # noqa: F401
+from silverline.reporting.manifest import Requirement, normalize_requirements, load_manifest_module  # noqa: F401
